@@ -96,6 +96,14 @@ def login(body: LoginRequest):
             raise HTTPException(status_code=401, detail="Email atau password salah")
         raise HTTPException(status_code=500, detail=f"Terjadi kesalahan: {error_msg}")
 
+@app.post("/logout")
+def logout():
+    try:
+        supabase.auth.sign_out()
+        return {"message": "Logout berhasil"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal logout: {str(e)}")
+
 # ── CART ─────────────────────────────────────────────────────────────────────
 @app.get("/cart")
 def get_cart(authorization: Optional[str] = Header(None)):
