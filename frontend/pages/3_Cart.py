@@ -58,26 +58,23 @@ else:
                     </div>
                 """, unsafe_allow_html=True)
 
-                qty_col, del_col = st.columns([2, 1])
-                with qty_col:
-                    new_qty = st.number_input(
-                        "qty",
-                        min_value=1,
-                        max_value=10,
-                        value=item["qty"],
-                        key=f"qty_{item['cart_id']}",
-                        label_visibility="collapsed",
-                    )
-                    if new_qty != item["qty"]:
-                        update_cart_item(item["cart_id"], new_qty)
-                        show_success("Quantity updated")
-                        st.rerun()
+                new_qty = st.number_input(
+                    "qty",
+                    min_value=1,
+                    max_value=10,
+                    value=item["qty"],
+                    key=f"qty_{item['cart_id']}",
+                    label_visibility="collapsed",
+                )
+                if new_qty != item["qty"]:
+                    update_cart_item(item["cart_id"], new_qty)
+                    show_success("Quantity updated")
+                    st.rerun()
 
-                with del_col:
-                    if st.button("Remove", key=f"del_{item['cart_id']}"):
-                        delete_cart_item(item["cart_id"])
-                        show_success("Item removed")
-                        st.rerun()
+                if st.button("Remove", key=f"del_{item['cart_id']}", use_container_width=True):
+                    delete_cart_item(item["cart_id"])
+                    show_success("Item removed")
+                    st.rerun()
 
             with c3:
                 current_qty = st.session_state.get(f"qty_{item['cart_id']}", item["qty"])
@@ -126,8 +123,3 @@ else:
 
         if st.button("Proceed to Checkout →", use_container_width=True):
             st.switch_page("pages/4_Checkout.py")
-    
-new_qty = st.number_input(...)
-if new_qty != st.session_state.get(f"qty_{item['cart_id']}", item["qty"]):
-    update_cart_item(item["cart_id"], new_qty)
-    st.rerun()
