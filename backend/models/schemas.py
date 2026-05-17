@@ -5,6 +5,13 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    first_name: str
+    last_name: str
+    phone_number: Optional[str] = None
+
 class CartItemRequest(BaseModel):
     product_id: Optional[int] = None
     qty: Optional[int] = 1

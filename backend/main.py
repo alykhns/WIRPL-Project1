@@ -2,8 +2,9 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from database.connection import get_connection
+from database.supabase_conn import supabase
 from utils.jwt_helper import create_token, verify_token
-from models.schemas import LoginRequest, CartItemRequest, ProfileUpdate, OrderRequest, PaymentRequest
+from models.schemas import LoginRequest, RegisterRequest, CartItemRequest, ProfileUpdate, OrderRequest, PaymentRequest
 
 app = FastAPI(title="Lumiere API")
 
@@ -29,6 +30,41 @@ def root():
     return {"message": "Lumiere API is running"}
 
 # ── AUTH ─────────────────────────────────────────────────────────────────────
+@app.post("/register")
+def register(body: RegisterRequest):
+    try:
+        # 1. Sign up user ke Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": body.email,
+            "password": body.password,
+        })
+        
+        if not auth_response.user:
+            raise HTTPException(status_code=400, detail="Gagal mendaftarkan user")
+
+        user_id = auth_response.user.id
+
+        # 2. Simpan profil ke customer_table menggunakan upsert untuk menghindari error duplikat
+        customer_data = {
+            "customer_id": user_id,
+            "first_name": body.first_name,
+            "last_name": body.last_name,
+            "phone_number": body.phone_number
+        }
+        
+        db_response = supabase.table("customer_table").upsert(customer_data).execute()
+        
+        return {
+            "message": "Registrasi berhasil. Silakan cek email untuk verifikasi (jika diaktifkan).",
+            "user_id": user_id
+        }
+    except Exception as e:
+        # Jika terjadi error, kita bisa menangkap detailnya
+        error_msg = str(e)
+        if "already registered" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+        raise HTTPException(status_code=500, detail=f"Terjadi kesalahan: {error_msg}")
+
 @app.post("/login")
 def login(body: LoginRequest):
     conn = get_connection()
