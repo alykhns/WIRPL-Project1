@@ -2,8 +2,9 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from database.connection import get_connection
+from database.supabase_conn import supabase
 from utils.jwt_helper import create_token, verify_token
-from models.schemas import LoginRequest, CartItemRequest, ProfileUpdate, OrderRequest, PaymentRequest
+from models.schemas import LoginRequest, RegisterRequest, CartItemRequest, ProfileUpdate, OrderRequest, PaymentRequest
 
 app = FastAPI(title="Lumiere API")
 
@@ -29,29 +30,79 @@ def root():
     return {"message": "Lumiere API is running"}
 
 # ── AUTH ─────────────────────────────────────────────────────────────────────
+@app.post("/register")
+def register(body: RegisterRequest):
+    try:
+        # 1. Sign up user ke Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": body.email,
+            "password": body.password,
+        })
+        
+        if not auth_response.user:
+            raise HTTPException(status_code=400, detail="Gagal mendaftarkan user")
+
+        user_id = auth_response.user.id
+
+        # 2. Simpan profil ke customer_table menggunakan upsert untuk menghindari error duplikat
+        customer_data = {
+            "customer_id": user_id,
+            "first_name": body.first_name,
+            "last_name": body.last_name,
+            "phone_number": body.phone_number
+        }
+        
+        db_response = supabase.table("customer_table").upsert(customer_data).execute()
+        
+        return {
+            "message": "Registrasi berhasil. Silakan cek email untuk verifikasi (jika diaktifkan).",
+            "user_id": user_id
+        }
+    except Exception as e:
+        # Jika terjadi error, kita bisa menangkap detailnya
+        error_msg = str(e)
+        if "already registered" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+        raise HTTPException(status_code=500, detail=f"Terjadi kesalahan: {error_msg}")
+
 @app.post("/login")
 def login(body: LoginRequest):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT a.auth_id, a.password_hash, c.customer_id, c.first_name, c.membership_level
-        FROM auth_table a
-        JOIN customer_table c ON c.auth_id = a.auth_id
-        WHERE a.email = %s
-    """, (body.email,))
-    user = cursor.fetchone()
-    cursor.close()
-    conn.close()
+    try:
+        # 1. Sign in menggunakan Supabase Auth
+        response = supabase.auth.sign_in_with_password({
+            "email": body.email,
+            "password": body.password
+        })
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Email tidak ditemukan")
+        if not response.user:
+            raise HTTPException(status_code=401, detail="Email atau password salah")
 
-    import bcrypt
-    if not bcrypt.checkpw(body.password.encode(), user["password_hash"].encode()):
-        raise HTTPException(status_code=401, detail="Password salah")
+        user_id = response.user.id
+        
+        # 2. Ambil data profil dari customer_table
+        profile = supabase.table("customer_table").select("first_name").eq("customer_id", user_id).single().execute()
+        
+        name = profile.data.get("first_name", "User") if profile.data else "User"
 
-    token = create_token(user["customer_id"])
-    return {"token": token, "customer_id": user["customer_id"], "name": user["first_name"]}
+        # 3. Kembalikan token (access_token dari Supabase) dan info user
+        return {
+            "token": response.session.access_token,
+            "customer_id": user_id,
+            "name": name
+        }
+    except Exception as e:
+        error_msg = str(e)
+        if "invalid login credentials" in error_msg.lower():
+            raise HTTPException(status_code=401, detail="Email atau password salah")
+        raise HTTPException(status_code=500, detail=f"Terjadi kesalahan: {error_msg}")
+
+@app.post("/logout")
+def logout():
+    try:
+        supabase.auth.sign_out()
+        return {"message": "Logout berhasil"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal logout: {str(e)}")
 
 # ── CART ─────────────────────────────────────────────────────────────────────
 @app.get("/cart")
