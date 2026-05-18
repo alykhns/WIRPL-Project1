@@ -361,3 +361,65 @@ async def create_product(
     except Exception as e:
         print(f"DEBUG ERROR UMUM: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Terjadi kesalahan sistem: {str(e)}")
+
+@app.put("/products/{product_id}")
+async def update_product(
+    product_id: int,
+    name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    price: Optional[float] = Form(None),
+    stock: Optional[int] = Form(None),
+    image: Optional[UploadFile] = File(None)
+):
+    try:
+        # 1. Kumpulkan data yang ingin diupdate saja
+        update_data = {}
+        if name is not None: update_data["name"] = name
+        if description is not None: update_data["description"] = description
+        if price is not None: update_data["price"] = price
+        if stock is not None: update_data["stock"] = stock
+
+        # 2. Jika ada file gambar baru, upload ke Storage
+        if image and image.filename:
+            file_ext = image.filename.split(".")[-1]
+            file_name = f"{uuid.uuid4()}.{file_ext}"
+            file_content = await image.read()
+
+            supabase.storage.from_("product-images").upload(
+                path=file_name,
+                file=file_content,
+                file_options={"content-type": image.content_type}
+            )
+
+            image_url = supabase.storage.from_("product-images").get_public_url(file_name)
+            update_data["image_url"] = image_url
+
+        # 3. Cek apakah ada data yang akan diupdate
+        if not update_data:
+            return {"message": "Tidak ada data yang diperbarui", "data": None}
+
+        # 4. Update ke database
+        db_response = supabase.table("product_table").update(update_data).eq("product_id", product_id).execute()
+
+        if not db_response.data:
+            raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
+
+        return {
+            "message": "Produk berhasil diperbarui",
+            "data": db_response.data[0]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memperbarui produk: {str(e)}")
+
+@app.delete("/products/{product_id}")
+def delete_product(product_id: int):
+    try:
+        # Hapus data dari product_table
+        db_response = supabase.table("product_table").delete().eq("product_id", product_id).execute()
+
+        if not db_response.data:
+            raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
+
+        return {"message": f"Produk dengan ID {product_id} berhasil dihapus"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal menghapus produk: {str(e)}")
