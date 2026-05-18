@@ -1,6 +1,8 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
+import os
+import uuid
 from database.connection import get_connection
 from database.supabase_conn import supabase
 from utils.jwt_helper import create_token, verify_token
@@ -281,28 +283,81 @@ def submit_payment(body: PaymentRequest, authorization: Optional[str] = Header(N
 
 # ── PRODUCTS ──────────────────────────────────────────────────────────────────
 @app.get("/products")
-def get_products(category_id: Optional[int] = None, limit: int = 20, offset: int = 0):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    if category_id:
-        cursor.execute("""
-            SELECT * FROM product WHERE category_id = %s LIMIT %s OFFSET %s
-        """, (category_id, limit, offset))
-    else:
-        cursor.execute("SELECT * FROM product LIMIT %s OFFSET %s", (limit, offset))
-    products = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return products
+def get_products(limit: int = 20, offset: int = 0):
+    try:
+        # Mengambil data dari product_table menggunakan Supabase
+        response = supabase.table("product_table").select("*").range(offset, offset + limit - 1).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil produk: {str(e)}")
 
 @app.get("/products/{product_id}")
 def get_product(product_id: int):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM product WHERE product_id = %s", (product_id,))
-    product = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    try:
+        # Mengambil satu data berdasarkan ID
+        response = supabase.table("product_table").select("*").eq("product_id", product_id).single().execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil detail produk: {str(e)}")
+
+@app.post("/products")
+async def create_product(
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    price: float = Form(...),
+    stock: int = Form(0),
+    image: UploadFile = File(...)
+):
+    try:
+        print(f"DEBUG: Memulai proses tambah produk: {name}")
+        # 1. Generate Nama File Unik
+        file_ext = image.filename.split(".")[-1]
+        file_name = f"{uuid.uuid4()}.{file_ext}"
+        file_content = await image.read()
+
+        # 2. Upload ke Supabase Storage
+        try:
+            print(f"DEBUG: Mencoba upload ke storage: {file_name}")
+            storage_response = supabase.storage.from_("product-images").upload(
+                path=file_name,
+                file=file_content,
+                file_options={"content-type": image.content_type}
+            )
+            print("DEBUG: Upload storage berhasil")
+        except Exception as storage_err:
+            print(f"DEBUG ERROR STORAGE: {str(storage_err)}")
+            raise HTTPException(status_code=500, detail=f"Gagal di STORAGE (Upload Gambar): {str(storage_err)}")
+
+        # 3. Dapatkan Public URL
+        image_url = supabase.storage.from_("product-images").get_public_url(file_name)
+        print(f"DEBUG: URL Gambar: {image_url}")
+
+        # 4. Simpan ke Database
+        try:
+            print("DEBUG: Mencoba insert ke database")
+            product_data = {
+                "name": name,
+                "description": description,
+                "price": price,
+                "stock": stock,
+                "image_url": image_url
+            }
+
+            db_response = supabase.table("product_table").insert(product_data).execute()
+            print("DEBUG: Insert database berhasil")
+
+            return {
+                "message": "Produk berhasil ditambahkan",
+                "data": db_response.data[0] if db_response.data else None
+            }
+        except Exception as db_err:
+            print(f"DEBUG ERROR DB: {str(db_err)}")
+            raise HTTPException(status_code=500, detail=f"Gagal di DATABASE (Insert Tabel): {str(db_err)}")
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        print(f"DEBUG ERROR UMUM: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Terjadi kesalahan sistem: {str(e)}")
