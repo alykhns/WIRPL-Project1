@@ -9,101 +9,132 @@ def inject_style():
             --gold: #C9A96E;
             --gold-light: #E8D5B0;
             --gold-dark: #8B6914;
-            --cream: #FAF7F2;
-            --charcoal: #1A1A1A;
-            --charcoal-mid: #2D2D2D;
-            --muted: #8A8476;
+            --bg: #FAF7F2;
+            --text: #1A1A1A;
+            --text-muted: #8A8476;
+            --card-bg: #FFFFFF;
             --border: rgba(201,169,110,0.25);
             --border-strong: rgba(201,169,110,0.5);
             --danger: #C0392B;
             --success: #27AE60;
+            --hr: rgba(201,169,110,0.15);
+            --hero-bg: linear-gradient(135deg, #FAF7F2 0%, #E8D5B0 100%);
+            --hero-text: #1A1A1A;
         }
 
-        html, body, [class*="css"] {
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0E0B09;
+                --text: #FAF7F2;
+                --text-muted: #AFA99B;
+                --card-bg: #1A1410;
+                --border: rgba(201,169,110,0.15);
+                --border-strong: rgba(201,169,110,0.3);
+                --hr: rgba(201,169,110,0.1);
+                --hero-bg: linear-gradient(135deg, #050403 0%, #1A1410 50%, #050403 100%);
+                --hero-text: #FAF7F2;
+            }
+        }
+
+        /* Base resets */
+        html, body, [data-testid="stAppViewContainer"] {
             font-family: 'Jost', sans-serif;
-            background-color: #FAF7F2;
-            color: #1A1A1A;
+            background-color: var(--bg) !important;
+            color: var(--text) !important;
         }
 
-        /* hide sidebar & hamburger */
-        [data-testid="stSidebar"] { display: none !important; }
-        [data-testid="collapsedControl"] { display: none !important; }
+        /* Sidebar styling */
+        [data-testid="stSidebar"] {
+            background-color: var(--bg) !important;
+            border-right: 1px solid var(--border);
+        }
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div {
+            color: var(--text) !important;
+        }
+
+        /* Headers and Titles */
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--text) !important;
+        }
+
+        /* Hide Streamlit default UI elements */
+        [data-testid="stHeader"], [data-testid="stToolbar"], header { 
+            display: none !important; 
+        }
+        
         [data-testid="stSidebarNav"] { display: none !important; }
-        [data-testid="stHeader"] { display: none !important; }
-        [data-testid="stToolbar"] { display: none !important; }
-        header { display: none !important; }
 
-        /* push content down so navbar doesn't overlap */
+        /* push content down */
         .main .block-container {
-            padding-top: 5rem !important;
+            padding-top: 1rem !important;
             max-width: 1100px;
+            background-color: transparent;
         }
 
-        /* navbar */
-        .lum-nav {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            z-index: 9999;
-            height: 64px;
-            background: rgba(250,247,242,0.96);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(201,169,110,0.25);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 2.5rem;
+        /* Style for st.page_link */
+        a[data-testid="stPageLink"] {
+            color: var(--text-muted) !important;
+            text-decoration: none !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.15em !important;
+            font-size: 0.75rem !important;
+            transition: all 0.3s !important;
+            background-color: transparent !important;
+            border: none !important;
+            padding: 0.5rem 1rem !important;
         }
-        .lum-nav-logo {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 1.7rem;
-            font-weight: 400;
-            letter-spacing: 0.08em;
-            color: #1A1A1A;
-            text-decoration: none;
+        a[data-testid="stPageLink"]:hover {
+            color: var(--text) !important;
         }
-        .lum-nav-logo em { color: #C9A96E; font-style: italic; }
 
-        .lum-nav-links {
-            display: flex;
-            gap: 2.2rem;
-            list-style: none;
-            margin: 0; padding: 0;
+        /* Input fields and selectboxes */
+        div[data-baseweb="input"], div[data-baseweb="select"], div[data-baseweb="popover"] {
+            background-color: var(--card-bg) !important;
         }
-        .lum-nav-links a {
-            font-size: 0.72rem;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #8A8476;
-            text-decoration: none;
-            transition: color 0.2s;
+        input, select, textarea {
+            color: var(--text) !important;
         }
-        .lum-nav-links a:hover { color: #1A1A1A; }
+        
+        /* Tabs */
+        button[data-baseweb="tab"] {
+            color: var(--text-muted) !important;
+        }
+        button[data-baseweb="tab"][aria-selected="true"] {
+            color: var(--gold) !important;
+            border-bottom-color: var(--gold) !important;
+        }
 
-        .lum-nav-cart {
-            font-size: 0.72rem;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #8A8476;
-            text-decoration: none;
-            border: 1px solid rgba(201,169,110,0.4);
-            padding: 6px 16px;
-            transition: all 0.2s;
+        /* Buttons */
+        div.stButton > button {
+            border: 1px solid var(--border);
+            background-color: var(--card-bg);
+            color: var(--text);
         }
-        .lum-nav-cart:hover {
-            background: #C9A96E;
-            color: white;
-            border-color: #C9A96E;
+        div.stButton > button:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        
+        /* Cards & Containers */
+        .lum-card {
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            background: var(--card-bg);
+            border-radius: 4px;
+            color: var(--text);
+        }
+        
+        /* Metrics */
+        [data-testid="stMetricValue"] {
+            color: var(--gold) !important;
+        }
+        [data-testid="stMetricLabel"] {
+            color: var(--text-muted) !important;
+        }
+        
+        /* Divider */
+        hr {
+            border-top: 1px solid var(--hr) !important;
         }
         </style>
-
-        <nav class="lum-nav">
-            <a class="lum-nav-logo" href="/">Lumi<em>è</em>re</a>
-            <ul class="lum-nav-links">
-                <li><a href="/">Home</a></li>
-                <li><a href="/Katalog">Katalog</a></li>
-                <li><a href="/Detail_Produk">Detail Produk</a></li>
-                <li><a href="/Riwayat">Riwayat</a></li>
-            </ul>
-            <a class="lum-nav-cart" href="/Cart">◇ &nbsp;Cart</a>
-        </nav>
     """, unsafe_allow_html=True)

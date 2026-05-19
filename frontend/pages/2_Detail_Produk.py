@@ -44,11 +44,11 @@ with col_image:
 
 with col_info:
     st.markdown(f"""
-        <h1 style='font-family:"Cormorant Garamond",serif;font-weight:400;margin-bottom:0;'>
+        <h1 style='font-family:"Cormorant Garamond",serif;font-weight:400;margin-bottom:0;color:var(--text);'>
             {product.get('product_name', 'Nama Produk')}
         </h1>
-        <h3 style='color:#C9A96E; margin-top:0.5rem;'>{format_price(product.get('price', 0))}</h3>
-        <hr style='border:0.5px solid #EAEAEA;'>
+        <h3 style='color:var(--gold); margin-top:0.5rem;'>{format_price(product.get('price', 0))}</h3>
+        <hr style='border: 0; border-top: 1px solid var(--hr);'>
     """, unsafe_allow_html=True)
     
     st.write("**Deskripsi Produk:**")
@@ -56,36 +56,57 @@ with col_info:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Input Kuantitas
-    qty = st.number_input("Kuantitas", min_value=1, max_value=product.get('inventory_count', 10), value=1)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Action Buttons
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("🛒 Tambah ke Keranjang", use_container_width=True, type="primary"):
-            if not is_logged_in():
-                show_error("Silakan login terlebih dahulu untuk berbelanja.")
-            else:
-                success = add_to_cart(product_id, qty)
-                if success:
-                    show_success(f"{qty} {product.get('product_name')} ditambahkan ke keranjang!")
+    # Handle both 'stock' (real DB) and 'inventory_count' (mock data)
+    inventory = product.get("stock")
+    if inventory is None:
+        inventory = product.get("inventory_count", 0)
+        
+    if inventory > 0:
+        st.markdown(f"""
+            <p style='color:var(--success); font-size:0.9rem;'>
+                Stok tersedia: <strong>{inventory}</strong>
+            </p>
+        """, unsafe_allow_html=True)
+        
+        # Input Kuantitas
+        qty = st.number_input("Kuantitas", min_value=1, max_value=inventory, value=1)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Action Buttons
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("🛒 Tambah ke Keranjang", use_container_width=True, type="primary"):
+                if not is_logged_in():
+                    show_error("Silakan login terlebih dahulu untuk berbelanja.")
                 else:
-                    show_error("Gagal menambahkan ke keranjang.")
-    
-    with c2:
-        if st.button("💳 Beli Langsung", use_container_width=True):
-            if not is_logged_in():
-                show_error("Silakan login terlebih dahulu.")
-            else:
-                # Bypass langsung ke checkout membawa 1 item ini
-                st.session_state["checkout_cart"] = [{
-                    "product_id": product_id,
-                    "product_name": product.get('product_name'),
-                    "price": product.get('price'),
-                    "qty": qty
-                }]
-                st.session_state["checkout_total"] = product.get('price', 0) * qty
-                st.session_state.checkout_step = 1
-                st.switch_page("pages/4_Checkout.py")
+                    success = add_to_cart(product_id, qty)
+                    if success:
+                        show_success(f"{qty} {product.get('product_name')} ditambahkan ke keranjang!")
+                    else:
+                        show_error("Gagal menambahkan ke keranjang.")
+        
+        with c2:
+            if st.button("💳 Beli Langsung", use_container_width=True):
+                if not is_logged_in():
+                    show_error("Silakan login terlebih dahulu.")
+                else:
+                    # Bypass langsung ke checkout membawa 1 item ini
+                    st.session_state["checkout_cart"] = [{
+                        "product_id": product_id,
+                        "product_name": product.get('product_name'),
+                        "price": product.get('price'),
+                        "qty": qty
+                    }]
+                    st.session_state["checkout_total"] = product.get('price', 0) * qty
+                    st.session_state.checkout_step = 1
+                    st.switch_page("pages/4_Checkout.py")
+    else:
+        st.markdown(f"""
+            <div style='padding:1rem; background:rgba(192,57,43,0.1); border:1px solid var(--danger); border-radius:4px;'>
+                <p style='color:var(--danger); margin:0; font-weight:bold;'>
+                    Maaf, stok produk ini sedang habis.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.button("🛒 Tambah ke Keranjang", disabled=True, use_container_width=True)

@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.session import init_session
-from utils.mock_data import MOCK_PRODUCTS_SAMPLE, MOCK_CATEGORIES
+from utils.api_client import get_products, get_categories
 
 # IMPORT YANG BENAR: Mengambil fungsi product_grid dari file Anda
 from components.product_card import product_grid 
@@ -19,11 +19,11 @@ render_navbar()
 # Header
 st.markdown("""
     <div style='padding: 2rem 0 1rem'>
-        <span style='font-size:0.68rem;letter-spacing:0.35em;text-transform:uppercase;color:#C9A96E'>Discover</span>
-        <h1 style='font-family:"Cormorant Garamond",serif;font-weight:300;font-size:2.5rem'>
-            Our <em style='color:#C9A96E'>Collection</em>
+        <span style='font-size:0.68rem;letter-spacing:0.35em;text-transform:uppercase;color:var(--gold)'>Discover</span>
+        <h1 style='font-family:"Cormorant Garamond",serif;font-weight:300;font-size:2.5rem;color:var(--text)'>
+            Our <em style='color:var(--gold)'>Collection</em>
         </h1>
-        <div style='width:40px;height:1px;background:#C9A96E;margin-top:0.8rem;margin-bottom:2rem'></div>
+        <div style='width:40px;height:1px;background:var(--gold);margin-top:0.8rem;margin-bottom:2rem'></div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -31,13 +31,14 @@ st.markdown("""
 col_filter, col_products = st.columns([1, 3])
 
 with col_filter:
-    st.markdown("<h4 style='font-family:\"Cormorant Garamond\",serif;'>Filter</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='font-family:\"Cormorant Garamond\",serif;color:var(--text);'>Filter</h4>", unsafe_allow_html=True)
     
     # Pencarian
-    search_query = st.text_input("Cari Produk", placeholder="Nama produk...").lower()
+    search_query = st.text_input("Cari Produk", placeholder="Nama produk...")
     
     # Filter Kategori
-    kategori_options = ["Semua"] + list(MOCK_CATEGORIES.values())
+    categories = get_categories()
+    kategori_options = ["Semua"] + [c["category_name"] for c in categories]
     selected_category = st.radio("Kategori", options=kategori_options)
     
     # Filter Harga
@@ -49,24 +50,24 @@ with col_filter:
     )
 
 with col_products:
-    # Memfilter data produk
-    filtered_products = MOCK_PRODUCTS_SAMPLE
-    
-    # Filter by Search
-    if search_query:
-        filtered_products = [p for p in filtered_products if search_query in p.get("product_name", "").lower() or search_query in p.get("description", "").lower()]
-        
-    # Filter by Category
-    if selected_category != "Semua":
-        cat_id = next((k for k, v in MOCK_CATEGORIES.items() if v == selected_category), None)
-        if cat_id:
-            filtered_products = [p for p in filtered_products if p.get("category_id") == cat_id]
-            
-    # Sort Products
+    # Map sort option to api_client sort_by
+    sort_by = "newest"
     if sort_option == "Harga: Rendah ke Tinggi":
-        filtered_products = sorted(filtered_products, key=lambda x: x.get("price", 0))
+        sort_by = "price_asc"
     elif sort_option == "Harga: Tinggi ke Rendah":
-        filtered_products = sorted(filtered_products, key=lambda x: x.get("price", 0), reverse=True)
+        sort_by = "price_desc"
+        
+    # Get Category ID
+    cat_id = None
+    if selected_category != "Semua":
+        cat_id = next((c["category_id"] for c in categories if c["category_name"] == selected_category), None)
+
+    # Fetch from API
+    filtered_products = get_products(
+        search=search_query,
+        category_id=cat_id,
+        sort_by=sort_by
+    )
 
     # Render Grid Produk
     if not filtered_products:

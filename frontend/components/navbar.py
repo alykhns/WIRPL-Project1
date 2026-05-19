@@ -6,100 +6,66 @@ from components.style import inject_style
 
 def render_navbar():
     """
-    Render the main navigation bar with logo, links, cart, and profile.
+    Render the main navigation bar at the top of the page.
+    Uses st.page_link for persistent session and single-window navigation.
     """
-    # Initialize session
     init_session()
-    
-    # Inject custom styles (including navbar styles)
     inject_style()
     
-    # Get cart count
-    cart_items = get_cart()
-    cart_count = len(cart_items) if cart_items else 0
+    # Navbar Container at the top
+    nav_container = st.container()
     
-    # Update session cart count
-    st.session_state["cart_count"] = cart_count
-    
-    # Navbar HTML/CSS is already rendered via inject_style()
-    # This function adds interactive elements
-    
-    # Add navbar actions in sidebar (hidden but functional)
-    with st.sidebar:
-        st.markdown("---")
+    with nav_container:
+        # Layout: Logo | Links... | Cart | Profile/Login
+        cols = st.columns([2, 1, 1, 1, 1, 1, 1.5, 1.5])
         
-        if is_logged_in():
-            # User is logged in - show profile and logout
-            user = get_profile()
+        with cols[0]:
+            st.markdown('<div style="font-family: \'Cormorant Garamond\', serif; font-size: 1.5rem; font-weight: 400; letter-spacing: 0.08em; color: var(--text);">Lumi<em style="color: var(--gold); font-style: italic;">è</em>re</div>', unsafe_allow_html=True)
+        
+        with cols[1]:
+            st.page_link("Home.py", label="Home")
+        
+        with cols[2]:
+            st.page_link("pages/1_Katalog.py", label="Katalog")
             
-            col1, col2 = st.columns([3, 1])
+        with cols[3]:
+            st.page_link("pages/5_Riwayat.py", label="Riwayat")
             
-            with col1:
-                first_name = user.get('first_name', 'User')
-                last_name = user.get('last_name', '')
-                st.write(f"👤 {first_name} {last_name}")
-                st.caption(user.get('email', ''))
+        # Admin link only if logged in and admin
+        with cols[4]:
+            if is_logged_in():
+                user = get_profile()
+                membership_level = user.get('membership_level', 'regular').lower()
+                IS_ADMIN = membership_level in ['platinum', 'admin'] or user.get('email') == "admin@lumiere.com"
+                if IS_ADMIN:
+                    st.page_link("pages/6_Admin.py", label="Admin")
+        
+        # Spacer
+        with cols[5]:
+            st.write("")
             
-            with col2:
-                if st.button("🚪", help="Logout", key="logout_btn"):
+        with cols[6]:
+            cart_items = get_cart()
+            cart_count = len(cart_items) if cart_items else 0
+            st.page_link("pages/3_Cart.py", label=f"◇ Cart ({cart_count})")
+            
+        with cols[7]:
+            if is_logged_in():
+                user = get_profile()
+                name = user.get('first_name', 'User')
+                if st.button(f"👤 {name} (Logout)", key="nav_logout", use_container_width=True):
                     logout()
                     st.rerun()
-            
-            st.markdown("---")
-            st.write("📋 **Menu**")
-            
-            col_menu1, col_menu2 = st.columns(2)
-            with col_menu1:
-                if st.button("🏠 Home", use_container_width=True):
-                    st.switch_page("pages/0_Home.py")
-            with col_menu2:
-                if st.button(f"🛒 Cart ({cart_count})", use_container_width=True):
-                    st.switch_page("pages/3_Cart.py")
-            
-            col_menu3, col_menu4 = st.columns(2)
-            with col_menu3:
-                if st.button("📦 Katalog", use_container_width=True):
-                    st.switch_page("pages/1_Katalog.py")
-            with col_menu4:
-                if st.button("📜 Riwayat", use_container_width=True):
-                    st.switch_page("pages/5_Riwayat.py")
-            
-            membership_level = user.get('membership_level', '').lower()
-            if membership_level in ['platinum', 'admin']:
-                st.markdown("---")
-                if st.button("⚙️ Admin Panel", use_container_width=True):
-                    st.switch_page("pages/6_Admin.py")
-        
-        else:
-            # User not logged in - show login/register options
-            st.write("👤 **Not Logged In**")
-            
-            col_auth1, col_auth2 = st.columns(2)
-            with col_auth1:
-                if st.button("🔐 Login", use_container_width=True):
-                    # Navigate to login page if exists, or show login modal
-                    st.info("Redirect to login page")
-            with col_auth2:
-                if st.button("📝 Register", use_container_width=True):
-                    # Navigate to register page if exists
-                    st.info("Redirect to register page")
-            
-            st.markdown("---")
-            st.write("📋 **Browse**")
-            
-            col_browse1, col_browse2 = st.columns(2)
-            with col_browse1:
-                if st.button("🏠 Home", use_container_width=True):
-                    st.switch_page("pages/0_Home.py")
-            with col_browse2:
-                if st.button("📦 Katalog", use_container_width=True):
-                    st.switch_page("pages/1_Katalog.py")
+            else:
+                if st.button("🔐 Login", key="nav_login", use_container_width=True):
+                    st.switch_page("Home.py")
+
+    st.markdown('<hr style="margin-top: 0.5rem; margin-bottom: 2rem; border: 0; border-top: 1px solid var(--hr);">', unsafe_allow_html=True)
 
 
 def navbar_cart_badge():
     """
     Display cart badge in navbar area (for reference).
-    This is rendered via inject_style() but we keep this for clarity.
     """
     cart_count = st.session_state.get("cart_count", 0)
     if cart_count > 0:
@@ -109,7 +75,7 @@ def navbar_cart_badge():
 
 def render_mobile_navbar():
     """
-    Render a mobile-friendly navbar (alternative compact version).
+    Render a mobile-friendly navbar.
     """
     init_session()
     
@@ -120,8 +86,8 @@ def render_mobile_navbar():
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(250, 247, 242, 0.96);
-            border-top: 1px solid rgba(201, 169, 110, 0.25);
+            background: var(--bg);
+            border-top: 1px solid var(--border);
             display: flex;
             justify-content: space-around;
             padding: 0.5rem 0;
@@ -131,7 +97,7 @@ def render_mobile_navbar():
             flex: 1;
             text-align: center;
             font-size: 0.8rem;
-            color: #8A8476;
+            color: var(--text-muted);
         }
         </style>
     """, unsafe_allow_html=True)
@@ -140,23 +106,16 @@ def render_mobile_navbar():
 def breadcrumb(items: list):
     """
     Display breadcrumb navigation.
-    
-    Args:
-        items (list): List of tuples (label, page_path) or just labels for current page
-                     Example: [("Home", "/"), ("Katalog", "/Katalog"), ("Detail")]
     """
     breadcrumb_html = '<div style="margin-bottom: 1.5rem;">'
-    
     for idx, item in enumerate(items):
         if isinstance(item, tuple):
             label, path = item
-            breadcrumb_html += f'<a href="{path}" style="color: #C9A96E; text-decoration: none; font-size: 0.85rem;">{label}</a>'
+            breadcrumb_html += f'<a href="{path}" style="color: var(--gold); text-decoration: none; font-size: 0.85rem;">{label}</a>'
         else:
-            breadcrumb_html += f'<span style="color: #8A8476; font-size: 0.85rem;">{item}</span>'
-        
+            breadcrumb_html += f'<span style="color: var(--text-muted); font-size: 0.85rem;">{item}</span>'
         if idx < len(items) - 1:
-            breadcrumb_html += ' <span style="color: #C9A96E; margin: 0 0.5rem;">›</span> '
-    
+            breadcrumb_html += ' <span style="color: var(--gold); margin: 0 0.5rem;">›</span> '
     breadcrumb_html += '</div>'
     st.markdown(breadcrumb_html, unsafe_allow_html=True)
 
@@ -176,9 +135,11 @@ def navbar_search():
         .navbar-search input {
             flex: 1;
             padding: 0.5rem;
-            border: 1px solid rgba(201, 169, 110, 0.25);
+            border: 1px solid var(--border);
             border-radius: 4px;
             font-size: 0.85rem;
+            background-color: var(--card-bg);
+            color: var(--text);
         }
         </style>
     """, unsafe_allow_html=True)

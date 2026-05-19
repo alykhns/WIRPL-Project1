@@ -7,21 +7,12 @@ from components.toast import show_success, show_error
 def product_card(product, show_add_to_cart=True):
     """
     Display a product card with product details and add to cart button.
-    
-    Args:
-        product (dict): Product data containing:
-            - product_id, product_name, brand, price, color, size
-            - material, style, season, inventory_count, category_id
-            - arrival_date, description, image_url (optional)
-        show_add_to_cart (bool): Whether to show the add to cart button
     """
     
     with st.container(border=True):
-        # Product Image Placeholder
         col1, col2 = st.columns([2, 3])
         
         with col1:
-            # Product image - use image_url if available, otherwise show initial
             image_url = product.get("image_url")
             if image_url:
                 st.image(image_url, use_container_width=True)
@@ -31,13 +22,13 @@ def product_card(product, show_add_to_cart=True):
                     <div style="
                         width: 100%;
                         aspect-ratio: 1;
-                        background: linear-gradient(135deg, #C9A96E 0%, #E8D5B0 100%);
+                        background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
                         border-radius: 8px;
                         display: flex;
                         align-items: center;
                         justify-content: center;
                         font-size: 3rem;
-                        color: rgba(250, 247, 242, 0.8);
+                        color: white;
                         font-family: 'Cormorant Garamond', serif;
                         font-weight: 600;
                     ">
@@ -46,30 +37,31 @@ def product_card(product, show_add_to_cart=True):
                 """, unsafe_allow_html=True)
         
         with col2:
-            # Product Details
             st.markdown(f"""
-                <p style="margin: 0; font-size: 0.9rem; color: #8A8476; letter-spacing: 0.08em;">
+                <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted); letter-spacing: 0.08em;">
                     {product.get('brand', 'Brand').upper()}
                 </p>
             """, unsafe_allow_html=True)
             
             st.markdown(f"""
-                <h3 style="margin: 4px 0 8px 0; font-size: 1.3rem; font-family: 'Cormorant Garamond', serif; color: #1A1A1A; font-weight: 400;">
+                <h3 style="margin: 4px 0 8px 0; font-size: 1.3rem; font-family: 'Cormorant Garamond', serif; color: var(--text); font-weight: 400;">
                     {product.get('product_name', 'Product')}
                 </h3>
             """, unsafe_allow_html=True)
             
-            # Price
             st.markdown(f"""
-                <p style="margin: 0; font-size: 1.4rem; color: #C9A96E; font-weight: 600;">
+                <p style="margin: 0; font-size: 1.4rem; color: var(--gold); font-weight: 600;">
                     {format_price(product.get('price', 0))}
                 </p>
             """, unsafe_allow_html=True)
             
-            # Inventory status
-            inventory = product.get("inventory_count", 0)
+            # Handle both 'stock' (real DB) and 'inventory_count' (mock data)
+            inventory = product.get("stock")
+            if inventory is None:
+                inventory = product.get("inventory_count", 0)
+                
             status_color = "#27AE60" if inventory > 0 else "#C0392B"
-            status_text = "In Stock" if inventory > 0 else "Out of Stock"
+            status_text = f"In Stock ({inventory})" if inventory > 0 else "Out of Stock"
             
             st.markdown(f"""
                 <p style="margin: 8px 0; font-size: 0.75rem; color: {status_color}; font-weight: 500; letter-spacing: 0.05em;">
@@ -77,7 +69,6 @@ def product_card(product, show_add_to_cart=True):
                 </p>
             """, unsafe_allow_html=True)
             
-            # Attributes
             attributes = []
             if product.get("color"):
                 attributes.append(f"<strong>Color:</strong> {product['color']}")
@@ -92,25 +83,17 @@ def product_card(product, show_add_to_cart=True):
             
             if attributes:
                 st.markdown(f"""
-                    <p style="margin: 0; font-size: 0.75rem; color: #8A8476; line-height: 1.6;">
+                    <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted); line-height: 1.6;">
                         {' • '.join(attributes)}
                     </p>
                 """, unsafe_allow_html=True)
             
-            # Description
             description = product.get("description")
             if description:
                 st.caption(description[:100] + "..." if len(description) > 100 else description)
-            
-            # Arrival date
-            arrival_date = product.get("arrival_date")
-            if arrival_date:
-                st.caption(f"📅 Arrived: {arrival_date}")
         
-        # Add to Cart Button
         if show_add_to_cart:
             st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
-            
             col_btn1, col_btn2 = st.columns(2)
             
             with col_btn1:
@@ -120,10 +103,7 @@ def product_card(product, show_add_to_cart=True):
                     use_container_width=True,
                 ):
                     if inventory > 0:
-                        result = add_to_cart(
-                            product_id=product.get("product_id"),
-                            quantity=1
-                        )
+                        result = add_to_cart(product_id=product.get("product_id"), quantity=1)
                         if result:
                             show_success(f"✓ {product.get('product_name', 'Product')} added to cart!")
                         else:
@@ -137,22 +117,12 @@ def product_card(product, show_add_to_cart=True):
                     key=f"detail_{product.get('product_id', 'unknown')}",
                     use_container_width=True,
                 ):
-                    # Navigate to detail page
-                    st.session_state["selected_product"] = product
+                    st.session_state["selected_product_id"] = product.get("product_id")
                     st.switch_page("pages/2_Detail_Produk.py")
 
 
 def product_grid(products, columns=3, show_add_to_cart=True):
-    """
-    Display products in a grid layout.
-    
-    Args:
-        products (list): List of product dictionaries
-        columns (int): Number of columns in the grid
-        show_add_to_cart (bool): Whether to show add to cart buttons
-    """
     cols = st.columns(columns)
-    
     for idx, product in enumerate(products):
         with cols[idx % columns]:
             product_card(product, show_add_to_cart=show_add_to_cart)

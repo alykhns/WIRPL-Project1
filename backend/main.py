@@ -207,24 +207,38 @@ def update_profile(body: ProfileUpdate, authorization: Optional[str] = Header(No
 @app.post("/orders")
 def create_order(body: OrderRequest, authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
+    
+    # 1. Simpan ke Supabase order_table
+    import random
+    order_id_num = random.randint(1000, 9999)
+    order_id_str = f"LM-{order_id_num}"
+    
+    order_data = {
+        "order_id": order_id_num,
+        "customer_id": customer_id,
+        "total_amount": body.total,
+        "status": "pending"
+    }
+    
+    try:
+        supabase.table("order_table").insert(order_data).execute()
+    except Exception as e:
+        print(f"Error Supabase Order: {e}")
+
+    # 2. Simpan ke MySQL order_item (Opsional, untuk detail)
     conn = get_connection()
     cursor = conn.cursor()
-
-    # Buat order_id unik sederhana
-    import random
-    order_id = random.randint(1000, 9999)
-
     for item in body.cart:
         cursor.execute("""
             INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price_at_purchase)
             VALUES (%s, %s, %s, %s, %s)
-        """, (random.randint(10000, 99999), order_id,
+        """, (random.randint(10000, 99999), order_id_num,
               item.get("product_id"), item.get("qty"), item.get("price")))
 
     conn.commit()
     cursor.close()
     conn.close()
-    return {"order_id": f"LM-{order_id}", "message": "Order created"}
+    return {"order_id": order_id_str, "message": "Order created"}
 
 @app.get("/orders/history")
 def get_order_history(authorization: Optional[str] = Header(None)):
@@ -280,6 +294,69 @@ def submit_payment(body: PaymentRequest, authorization: Optional[str] = Header(N
     get_customer_id(authorization)
     # Simulasi payment — di production konek ke payment gateway
     return {"status": "success", "method": body.method, "total": body.total}
+
+# ── CATEGORIES ───────────────────────────────────────────────────────────────
+@app.get("/categories")
+def get_categories():
+    try:
+        # Mengambil semua kategori dari categories table (asumsi ada tabel ini di Supabase)
+        response = supabase.table("categories").select("*").execute()
+        return response.data
+    except Exception as e:
+        # Fallback jika tabel categories tidak ada, return mock data
+        return [
+            {"category_id": 1, "category_name": "Clothing"},
+            {"category_id": 2, "category_name": "Accessories"},
+            {"category_id": 3, "category_name": "Shoes"},
+        ]
+
+# ── ADMIN ────────────────────────────────────────────────────────────────────
+@app.get("/admin/stats")
+def get_admin_stats(authorization: Optional[str] = Header(None)):
+    get_customer_id(authorization) # Simple auth check
+    try:
+        # Hitung total orders, revenue, dan products
+        orders_res = supabase.table("order_table").select("total_amount", count="exact").execute()
+        products_res = supabase.table("product_table").select("product_id", count="exact").execute()
+        
+        total_orders = orders_res.count if orders_res.count is not None else 0
+        total_revenue = sum([o["total_amount"] for o in orders_res.data]) if orders_res.data else 0
+        total_products = products_res.count if products_res.count is not None else 0
+        
+        return {
+            "total_orders": total_orders,
+            "total_revenue": total_revenue,
+            "total_products": total_products,
+            "active_categories": 3 # Placeholder
+        }
+    except Exception as e:
+        return {
+            "total_orders": 0,
+            "total_revenue": 0,
+            "total_products": 0,
+            "active_categories": 0,
+            "error": str(e)
+        }
+
+@app.get("/admin/orders")
+def get_all_orders(authorization: Optional[str] = Header(None)):
+    get_customer_id(authorization)
+    try:
+        response = supabase.table("order_table").select("*").order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil semua pesanan: {str(e)}")
+
+@app.put("/admin/orders/{order_id}/status")
+def admin_update_order_status(order_id: int, status: str = Form(...), authorization: Optional[str] = Header(None)):
+    get_customer_id(authorization)
+    try:
+        response = supabase.table("order_table").update({"status": status}).eq("order_id", order_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Pesanan tidak ditemukan")
+        return {"message": "Status pesanan berhasil diperbarui", "data": response.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memperbarui status pesanan: {str(e)}")
 
 # ── PRODUCTS ──────────────────────────────────────────────────────────────────
 @app.get("/products")

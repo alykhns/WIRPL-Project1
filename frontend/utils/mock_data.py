@@ -146,3 +146,15 @@ MOCK_PRODUCTS_SAMPLE = [
     {"product_id": 29, "category_id": 1, "product_name": "Knit Cardigan", "brand": "Lazzy", "price": 486.00, "color": "Pink", "size": "L", "material": "silk", "style": "casual", "season": "winter", "inventory_count": 500, "arrival_date": "2025-09-12", "description": "Soft silk knit cardigan in beautiful pink", "image_url": None},
     {"product_id": 74, "category_id": 5, "product_name": "Floral Maxi Dress", "brand": "Skinte", "price": 431.51, "color": "Teal", "size": "S", "material": "polyester", "style": "formal", "season": "spring", "inventory_count": 353, "arrival_date": "2025-08-30", "description": "Stunning teal floral maxi dress", "image_url": None},
 ]
+
+MOCK_PRODUCTS = MOCK_PRODUCTS_SAMPLE
+
+def get_filter_options():
+    return {
+        "brands": ["Ozu", "Gigaclub", "Lazzy", "Ailane", "Plajo", "Youbridge", "Tagcat", "Skinte"],
+        "colors": ["Blue", "Red", "Pink", "Teal", "Puce", "Black", "White"],
+        "sizes": ["XS", "S", "M", "L", "XL"],
+        "materials": ["polyester", "silk", "leather", "cotton", "linen", "wool"],
+        "styles": ["casual", "formal", "eveningwear", "sporty", "vintage"],
+        "seasons": ["winter", "summer", "spring", "fall"],
+    }
