@@ -132,22 +132,23 @@ categories = [
     ("Accessories","◆", "Finishing touches that matter"),
 ]
 
-cols = st.columns(5)
-for col, (name, icon, desc) in zip(cols, categories):
-    with col:
-        st.markdown(f"""
-            <div style='border:1px solid rgba(201,169,110,0.25);padding:1.5rem 1rem;
-            text-align:center;cursor:pointer;transition:all 0.2s;
-            background:#FAF7F2'>
-                <div style='font-size:1.6rem;color:#C9A96E;margin-bottom:0.8rem'>{icon}</div>
-                <div style='font-family:"Cormorant Garamond",serif;font-size:1rem;
-                margin-bottom:0.4rem'>{name}</div>
-                <div style='font-size:0.68rem;color:#8A8476;letter-spacing:0.05em;
-                line-height:1.5'>{desc}</div>
-            </div>
-        """, unsafe_allow_html=True)
+cards_html = "".join(
+    f'<div style="border:1px solid rgba(201,169,110,0.25);padding:1.5rem 1rem;'
+    f'text-align:center;background:#FAF7F2;display:flex;flex-direction:column;align-items:center;">'
+    f'<div style="font-size:1.6rem;color:#C9A96E;margin-bottom:0.8rem">{icon}</div>'
+    f'<div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;margin-bottom:0.4rem">{name}</div>'
+    f'<div style="font-size:0.68rem;color:#8A8476;letter-spacing:0.05em;line-height:1.5">{desc}</div>'
+    f'</div>'
+    for name, icon, desc in categories
+)
 
-st.markdown("<div style='margin-top:3rem'></div>", unsafe_allow_html=True)
+st.markdown(f"""
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;">
+        {cards_html}
+    </div>
+""", unsafe_allow_html=True)
+
+st.markdown("<div style='margin-top:4rem'></div>", unsafe_allow_html=True)
 
 # featured items
 st.markdown("""
@@ -160,10 +161,10 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-from utils.mock_data import MOCK_PRODUCTS_SAMPLE, MOCK_CATEGORIES
+from utils.mock_data import MOCK_PRODUCTS, MOCK_CATEGORIES
 
 feat_cols = st.columns(3)
-for col, product in zip(feat_cols, MOCK_PRODUCTS_SAMPLE[:3]):
+for col, product in zip(feat_cols, MOCK_PRODUCTS[:3]):
     with col:
         initial = product["product_name"][0]
         cat_name = MOCK_CATEGORIES.get(product["category_id"], "")
