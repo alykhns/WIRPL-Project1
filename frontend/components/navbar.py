@@ -16,8 +16,8 @@ def render_navbar():
     nav_container = st.container()
     
     with nav_container:
-        # Layout: Logo | Links... | Cart | Profile/Login
-        cols = st.columns([2, 1, 1, 1, 1, 1, 1.5, 1.5])
+        # Layout: Logo | Links... | Cart | Profile/Login | Theme
+        cols = st.columns([2, 1, 1, 1, 1, 0.5, 1.2, 1.3, 0.8])
         
         with cols[0]:
             st.markdown('<div style="font-family: \'Cormorant Garamond\', serif; font-size: 1.5rem; font-weight: 400; letter-spacing: 0.08em; color: var(--text);">Lumi<em style="color: var(--gold); font-style: italic;">è</em>re</div>', unsafe_allow_html=True)
@@ -53,12 +53,19 @@ def render_navbar():
             if is_logged_in():
                 user = get_profile()
                 name = user.get('first_name', 'User')
-                if st.button(f"👤 {name} (Logout)", key="nav_logout", use_container_width=True):
+                if st.button(f"👤 {name}", key="nav_logout", use_container_width=True, help="Logout"):
                     logout()
                     st.rerun()
             else:
                 if st.button("🔐 Login", key="nav_login", use_container_width=True):
-                    st.switch_page("Home.py")
+                    st.switch_page("pages/7_Login.py")
+
+        with cols[8]:
+            theme = st.session_state.get("theme", "light")
+            theme_icon = "🌙" if theme == "light" else "🌞"
+            if st.button(theme_icon, key="nav_theme_toggle", use_container_width=True, help="Switch Theme"):
+                st.session_state.theme = "dark" if theme == "light" else "light"
+                st.rerun()
 
     st.markdown('<hr style="margin-top: 0.5rem; margin-bottom: 2rem; border: 0; border-top: 1px solid var(--hr);">', unsafe_allow_html=True)
 

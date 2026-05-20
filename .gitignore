@@ -33,6 +33,3 @@ yarn-error.log*
 dist/
 build/
 *.egg-info/
-
-# AI Assist
-GEMINI.md
