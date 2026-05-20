@@ -109,8 +109,22 @@ def add_to_cart(product_id, quantity=1):
             MOCK_CART.append(new_item)
             return new_item
         return payload
-    res = requests.post(f"{BASE_URL}/cart", json=payload, headers=get_headers())
-    return res.json() if res.ok else None
+    
+    headers = get_headers()
+    print(f"[add_to_cart] Sending request to {BASE_URL}/cart with payload: {payload}")
+    print(f"[add_to_cart] Headers: {headers}")
+    res = requests.post(f"{BASE_URL}/cart", json=payload, headers=headers)
+    print(f"[add_to_cart] Response status: {res.status_code}")
+    print(f"[add_to_cart] Response body: {res.text}")
+    
+    if res.ok:
+        result = res.json()
+        print(f"[add_to_cart] Success: {result}")
+        return result
+    else:
+        error_data = res.json() if res.text else {"error": f"HTTP {res.status_code}"}
+        print(f"[add_to_cart] Failed: {error_data}")
+        return error_data
 
 def update_cart_item(item_id, quantity):
     payload = {"qty": quantity}
@@ -151,6 +165,34 @@ def get_order_history():
     if USE_MOCK: return MOCK_ORDERS
     res = requests.get(f"{BASE_URL}/orders/history", headers=get_headers())
     return res.json() if res.ok else []
+
+def submit_payment(payload):
+    """Submit payment with method and total amount"""
+    if USE_MOCK:
+        return {"status": "success", "message": "Payment processed"}
+    res = requests.post(f"{BASE_URL}/payment", json=payload, headers=get_headers())
+    return res.json() if res.ok else None
+
+# ============================================================
+# SHIPPING  
+# ============================================================
+def get_shipping_options():
+    """Get available shipping options"""
+    if USE_MOCK:
+        return [
+            {"name": "Standard", "estimate": "5-7 days", "price": 50000},
+            {"name": "Express", "estimate": "2-3 days", "price": 100000},
+            {"name": "Overnight", "estimate": "Next day", "price": 150000},
+        ]
+    res = requests.get(f"{BASE_URL}/shipping/options", headers=get_headers())
+    if res.ok:
+        return res.json()
+    # Fallback dengan default options kalau API gagal
+    return [
+        {"name": "Standard", "estimate": "5-7 days", "price": 50000},
+        {"name": "Express", "estimate": "2-3 days", "price": 100000},
+        {"name": "Overnight", "estimate": "Next day", "price": 150000},
+    ]
 
 # ============================================================
 # ADMIN  

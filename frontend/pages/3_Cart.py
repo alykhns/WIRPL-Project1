@@ -49,9 +49,10 @@ else:
             c1, c2, c3 = st.columns([1, 3, 1])
             
             # Amankan variabel menggunakan .get() untuk menghindari KeyError
+            # Support both "qty" dan "quantity" field names
             cart_id = item.get("cart_id")
             product_name = item.get("product_name", "Product")
-            qty = item.get("qty", 1)
+            qty = item.get("qty") or item.get("quantity", 1)
             price = item.get("price", 0)
             category_id = item.get("category_id")
 

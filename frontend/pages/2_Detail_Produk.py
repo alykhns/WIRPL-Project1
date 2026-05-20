@@ -80,11 +80,13 @@ with col_info:
                 if not is_logged_in():
                     show_error("Silakan login terlebih dahulu untuk berbelanja.")
                 else:
-                    success = add_to_cart(product_id, qty)
-                    if success:
+                    result = add_to_cart(product_id, qty)
+                    # Check if result has status field (from real API) or is a dict-like object (from mock)
+                    if result and (result.get("status") == "success" or "product_id" in result):
                         show_success(f"{qty} {product.get('product_name')} ditambahkan ke keranjang!")
                     else:
-                        show_error("Gagal menambahkan ke keranjang.")
+                        error_msg = result.get("detail", "Gagal menambahkan ke keranjang.") if isinstance(result, dict) else "Gagal menambahkan ke keranjang."
+                        show_error(error_msg)
         
         with c2:
             if st.button("💳 Beli Langsung", use_container_width=True):

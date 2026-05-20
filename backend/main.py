@@ -20,11 +20,23 @@ app.add_middleware(
 # ── helper ──────────────────────────────────────────────────────────────────
 def get_customer_id(authorization: str):
     try:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Authorization header missing")
+        
         token = authorization.replace("Bearer ", "")
         payload = verify_token(token)
-        return payload["sub"]
-    except:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        customer_id = payload.get("sub")
+        
+        if not customer_id:
+            raise HTTPException(status_code=401, detail="Invalid token: no customer_id")
+        
+        print(f"[AUTH] Verified customer_id: {customer_id}")
+        return customer_id
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[AUTH] Error: {type(e).__name__}: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 # ── ROOT ─────────────────────────────────────────────────────────────────────
 @app.get("/")
@@ -109,30 +121,104 @@ def logout():
 # ── CART ─────────────────────────────────────────────────────────────────────
 @app.get("/cart")
 def get_cart(authorization: Optional[str] = Header(None)):
+    print(f"[GET CART] Request received, authorization present: {bool(authorization)}")
     customer_id = get_customer_id(authorization)
     try:
-        response = supabase.table("cart_table").select("*").eq("customer_id", customer_id).execute()
-        return response.data
+        # 1. Ambil cart items untuk customer ini
+        cart_response = supabase.table("cart_table").select("*").eq("customer_id", customer_id).execute()
+        print(f"[GET CART] Found {len(cart_response.data)} items in cart")
+        
+        # 2. Untuk setiap cart item, ambil product details
+        result = []
+        for cart_item in cart_response.data:
+            product_id = cart_item["product_id"]
+            print(f"[GET CART] Fetching product {product_id}")
+            
+            try:
+                # Ambil product details
+                product_response = supabase.table("product_table").select("*").eq("product_id", product_id).execute()
+                
+                if product_response.data:
+                    product = product_response.data[0]
+                    # Combine cart item + product data
+                    result.append({
+                        "cart_id": cart_item["cart_id"],
+                        "customer_id": cart_item["customer_id"],
+                        "product_id": cart_item["product_id"],
+                        "qty": cart_item["quantity"],
+                        "quantity": cart_item["quantity"],
+                        "product_name": product.get("product_name", "Unknown Product"),
+                        "brand": product.get("brand", ""),
+                        "price": product.get("price", 0),
+                        "color": product.get("color", ""),
+                        "size": product.get("size", ""),
+                        "material": product.get("material", ""),
+                        "style": product.get("style", ""),
+                        "season": product.get("season", ""),
+                        "category_id": product.get("category_id"),
+                    })
+                    print(f"[GET CART] Found product: {product.get('product_name')}")
+                else:
+                    # Produk tidak ditemukan, return cart item saja
+                    print(f"[GET CART] Product {product_id} not found, returning cart item only")
+                    result.append({
+                        "cart_id": cart_item["cart_id"],
+                        "customer_id": cart_item["customer_id"],
+                        "product_id": cart_item["product_id"],
+                        "qty": cart_item["quantity"],
+                        "quantity": cart_item["quantity"],
+                        "product_name": f"Product {product_id}",
+                        "price": 0,
+                    })
+            except Exception as prod_err:
+                print(f"[GET CART] Error fetching product {product_id}: {str(prod_err)}")
+                # Return cart item dengan product basic info
+                result.append({
+                    "cart_id": cart_item["cart_id"],
+                    "customer_id": cart_item["customer_id"],
+                    "product_id": cart_item["product_id"],
+                    "qty": cart_item["quantity"],
+                    "quantity": cart_item["quantity"],
+                    "product_name": f"Product {product_id}",
+                    "price": 0,
+                })
+        
+        print(f"[GET CART] Returning {len(result)} items")
+        return result
     except Exception as e:
+        print(f"[GET CART] Error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Gagal mengambil cart: {str(e)}")
 
 @app.post("/cart")
 def add_to_cart(body: dict, authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
     try:
+        # Accept both "qty" dan "quantity" dari frontend
         qty = body.get("qty", body.get("quantity", 1))
         product_id = body.get("product_id")
         
+        print(f"[ADD TO CART] customer_id={customer_id}, product_id={product_id}, qty={qty}")
+        
         if not product_id:
-            raise HTTPException(status_code=400, detail="product_id required")
+            raise HTTPException(status_code=400, detail="product_id is required")
+        
+        if qty < 1:
+            raise HTTPException(status_code=400, detail="quantity must be at least 1")
         
         # Cek apakah produk sudah ada di cart user
         check_exist = supabase.table("cart_table").select("*").eq("customer_id", customer_id).eq("product_id", product_id).execute()
         
+        print(f"[ADD TO CART] Found existing items: {len(check_exist.data)}")
+        
         if check_exist.data:
-            # Jika sudah ada, update quantity
-            new_qty = check_exist.data[0]["quantity"] + qty
+            # Jika sudah ada, update quantity (tambahkan)
+            existing_qty = check_exist.data[0]["quantity"]
+            new_qty = existing_qty + qty
             response = supabase.table("cart_table").update({"quantity": new_qty}).eq("customer_id", customer_id).eq("product_id", product_id).execute()
+            message = "Product quantity updated in cart"
+            print(f"[ADD TO CART] Updated existing item: new_qty={new_qty}")
         else:
             # Jika belum ada, insert baris baru
             payload = {
@@ -141,11 +227,18 @@ def add_to_cart(body: dict, authorization: Optional[str] = Header(None)):
                 "quantity": qty,
             }
             response = supabase.table("cart_table").insert(payload).execute()
+            message = "Product added to cart"
+            print(f"[ADD TO CART] Inserted new item: {payload}")
         
-        return {"status": "success", "data": response.data}
+        print(f"[ADD TO CART] Success - Response has {len(response.data)} items")
+        return {"status": "success", "message": message, "data": response.data}
     except HTTPException as he:
+        print(f"[ADD TO CART] HTTPException: {he.detail}")
         return {"status": "error", "detail": he.detail, "code": he.status_code}
     except Exception as e:
+        print(f"[ADD TO CART] Exception: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "detail": f"{type(e).__name__}: {str(e)}", "code": 500}
 
 @app.put("/cart/{cart_id}")
@@ -171,36 +264,32 @@ def delete_cart_item(cart_id: int, authorization: Optional[str] = Header(None)):
 @app.get("/customer/profile")
 def get_profile(authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT c.*, a.email FROM customer_table c
-        JOIN auth_table a ON a.auth_id = c.auth_id
-        WHERE c.customer_id = %s
-    """, (customer_id,))
-    profile = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return profile
+    try:
+        # Get profile dari Supabase customer_table
+        response = supabase.table("customer_table").select("*").eq("customer_id", customer_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil profile: {str(e)}")
 
 @app.put("/customer/profile")
 def update_profile(body: ProfileUpdate, authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE customer_table
-        SET first_name = %s, last_name = %s, phone_number = %s,
-            address = %s, city = %s, postal_code = %s
-        WHERE customer_id = %s
-    """, (body.first_name, body.last_name, body.phone_number,
-          body.address, body.city, body.postal_code, customer_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return {"message": "Profile updated"}
+    try:
+        # Update profile di Supabase customer_table
+        update_data = {
+            "first_name": body.first_name,
+            "last_name": body.last_name,
+            "phone_number": body.phone_number,
+            "address": body.address,
+            "city": body.city,
+            "postal_code": body.postal_code,
+        }
+        response = supabase.table("customer_table").update(update_data).eq("customer_id", customer_id).execute()
+        return {"message": "Profile updated", "data": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal update profile: {str(e)}")
 
 # ── ORDERS ────────────────────────────────────────────────────────────────────
 @app.post("/orders")
@@ -208,36 +297,45 @@ def create_order(body: OrderRequest, authorization: Optional[str] = Header(None)
     customer_id = get_customer_id(authorization)
     
     # 1. Simpan ke Supabase order_table
-    import random
-    order_id_num = random.randint(1000, 9999)
+    order_id_num = uuid.uuid4().int % 1000000000
     order_id_str = f"LM-{order_id_num}"
     
     order_data = {
         "order_id": order_id_num,
         "customer_id": customer_id,
         "total_amount": body.total,
-        "status": "pending"
+        "status": "PENDING_PAYMENT",
+        "shipping_address": "",
+        "city": "",
+        "state_province": "",
+        "postal_code": "",
+        "tracking_number": f"TRK-{uuid.uuid4().hex[:10].upper()}",
+        "payment_method": "manual"
     }
     
     try:
         supabase.table("order_table").insert(order_data).execute()
     except Exception as e:
-        print(f"Error Supabase Order: {e}")
+        raise HTTPException(status_code=500, detail=f"Gagal menyimpan order: {str(e)}")
 
-    # 2. Simpan ke MySQL order_item (Opsional, untuk detail)
-    conn = get_connection()
-    cursor = conn.cursor()
+    # 2. Simpan detail item langsung ke Supabase order_items_table.
+    detail_warnings = []
     for item in body.cart:
-        cursor.execute("""
-            INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price_at_purchase)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (random.randint(10000, 99999), order_id_num,
-              item.get("product_id"), item.get("qty"), item.get("price")))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return {"order_id": order_id_str, "message": "Order created"}
+        try:
+            supabase.table("order_items_table").insert({
+                "item_id": uuid.uuid4().int % 1000000000,
+                "order_id": order_id_num,
+                "product_id": item.get("product_id"),
+                "quantity": item.get("qty"),
+                "price_at_purchase": item.get("price"),
+            }).execute()
+        except Exception as e:
+            detail_warnings.append(str(e))
+            print(f"Error inserting order item: {e}")
+    response = {"order_id": order_id_str, "message": "Order created"}
+    if detail_warnings:
+        response["warnings"] = detail_warnings
+    return response
 
 @app.get("/orders/history")
 def get_order_history(authorization: Optional[str] = Header(None)):

@@ -100,18 +100,24 @@ elif st.session_state.checkout_step == 2:
                 final_total = total + ship_cost
                 if st.form_submit_button(f"place order · {format_price(final_total)}", use_container_width=True):
                     result = submit_payment({"method": "credit_card", "total": final_total})
-                    create_order({"cart": cart, "total": final_total})
-                    st.session_state.order_id = "LM-20260516"
-                    st.session_state.checkout_step = 3
-                    st.rerun()
+                    order_response = create_order({"cart": cart, "total": final_total})
+                    if order_response and "order_id" in order_response:
+                        st.session_state.order_id = order_response["order_id"]
+                        st.session_state.checkout_step = 3
+                        st.rerun()
+                    else:
+                        show_error("Failed to create order. Please try again.")
         else:
             final_total = total + ship_cost
             if st.button(f"place order · {format_price(final_total)}", use_container_width=True):
                 result = submit_payment({"method": payment_method, "total": final_total})
-                create_order({"cart": cart, "total": final_total})
-                st.session_state.order_id = "LM-20260516"
-                st.session_state.checkout_step = 3
-                st.rerun()
+                order_response = create_order({"cart": cart, "total": final_total})
+                if order_response and "order_id" in order_response:
+                    st.session_state.order_id = order_response["order_id"]
+                    st.session_state.checkout_step = 3
+                    st.rerun()
+                else:
+                    show_error("Failed to create order. Please try again.")
 
     with col_order:
         st.markdown("<div style='font-family:\"Cormorant Garamond\",serif;font-size:1.2rem;margin-bottom:1rem;color:var(--text);'>Your Order</div>", unsafe_allow_html=True)
