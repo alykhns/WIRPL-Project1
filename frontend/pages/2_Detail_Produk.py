@@ -45,7 +45,7 @@ with col_image:
 with col_info:
     st.markdown(f"""
         <h1 style='font-family:"Cormorant Garamond",serif;font-weight:400;margin-bottom:0;color:var(--text);'>
-            {product.get('product_name', 'Nama Produk')}
+            {product.get('name', 'Nama Produk')}
         </h1>
         <h3 style='color:var(--gold); margin-top:0.5rem;'>{format_price(product.get('price', 0))}</h3>
         <hr style='border: 0; border-top: 1px solid var(--hr);'>
@@ -82,7 +82,7 @@ with col_info:
                 else:
                     success = add_to_cart(product_id, qty)
                     if success:
-                        show_success(f"{qty} {product.get('product_name')} ditambahkan ke keranjang!")
+                        show_success(f"{qty} {product.get('name')} ditambahkan ke keranjang!")
                     else:
                         show_error("Gagal menambahkan ke keranjang.")
         
@@ -94,7 +94,7 @@ with col_info:
                     # Bypass langsung ke checkout membawa 1 item ini
                     st.session_state["checkout_cart"] = [{
                         "product_id": product_id,
-                        "product_name": product.get('product_name'),
+                        "name": product.get('name'),
                         "price": product.get('price'),
                         "qty": qty
                     }]

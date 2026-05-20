@@ -65,7 +65,7 @@ with col_content:
         for order in orders:
             parts = []
             for i in order.get("items", []):
-                parts.append(i.get("product_name", "Product") + " x" + str(i.get("qty", 1)))
+                parts.append(i.get("name", "Product") + " x" + str(i.get("qty", 1)))
             item_names = ", ".join(parts)
             status = order.get("status", "pending")
             total = order.get("total", 0)

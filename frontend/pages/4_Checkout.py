@@ -120,7 +120,7 @@ elif st.session_state.checkout_step == 2:
                 <div style='display:flex;justify-content:space-between;
                 font-size:0.82rem;padding:0.5rem 0;
                 border-bottom:1px solid var(--border);color:var(--text)'>
-                    <span>{item['product_name']} ×{item['qty']}</span>
+                    <span>{item['name']} ×{item['qty']}</span>
                     <span>{format_price(item['price'] * item['qty'])}</span>
                 </div>
             """, unsafe_allow_html=True)

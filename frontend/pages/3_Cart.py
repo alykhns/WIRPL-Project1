@@ -50,7 +50,7 @@ else:
             
             # Amankan variabel menggunakan .get() untuk menghindari KeyError
             cart_id = item.get("cart_id")
-            product_name = item.get("product_name", "Product")
+            product_name = item.get("name", "Product")
             qty = item.get("qty", 1)
             price = item.get("price", 0)
             category_id = item.get("category_id")
