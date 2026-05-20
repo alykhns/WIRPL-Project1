@@ -1,110 +1,25 @@
 import streamlit as st
+from utils.session import init_session
+from utils.api_client import get_products, get_categories, get_product_filter_options
+from components.product_card import product_grid
 from components.style import inject_style
-from components.product_card import inject_card_style, render_product_grid
-from utils.api_client import (
-    get_products, get_categories, get_product_filter_options,
-)
+from components.navbar import render_navbar
 
-st.set_page_config(
-    page_title="Katalog — Lumière",
-    page_icon="◇",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+st.set_page_config(page_title="Katalog Produk - Lumière", page_icon="🛍️", layout="wide")
 
 inject_style()
-inject_card_style()
+init_session()
+render_navbar()
 
-# styling khusus halaman katalog
 st.markdown("""
-    <style>
-    .lum-page-head {
-        text-align: center;
-        padding: 1.5rem 0 2.5rem;
-        border-bottom: 1px solid rgba(201,169,110,0.18);
-        margin-bottom: 2rem;
-    }
-    .lum-page-head .eyebrow {
-        font-size: 0.7rem;
-        letter-spacing: 0.3em;
-        text-transform: uppercase;
-        color: #C9A96E;
-        margin-bottom: 0.8rem;
-    }
-    .lum-page-head h1 {
-        font-family: 'Cormorant Garamond', serif;
-        font-size: 3rem;
-        font-weight: 300;
-        color: #1A1A1A;
-        margin: 0;
-        letter-spacing: 0.01em;
-    }
-    .lum-page-head h1 em { font-style: italic; color: #8B6914; }
-
-    /* override input styling biar nyatu */
-    div[data-baseweb="input"], div[data-baseweb="select"] {
-        border-radius: 0 !important;
-    }
-    .stTextInput input, .stSelectbox div[data-baseweb="select"] > div {
-        background: #FAF7F2 !important;
-        border: 1px solid rgba(201,169,110,0.3) !important;
-        font-family: 'Jost', sans-serif !important;
-        font-size: 0.85rem !important;
-    }
-    .stTextInput input:focus {
-        border-color: #C9A96E !important;
-        box-shadow: none !important;
-    }
-
-    /* label kecil & rapi */
-    .stTextInput label, .stSelectbox label, .stSlider label {
-        font-size: 0.66rem !important;
-        letter-spacing: 0.22em !important;
-        text-transform: uppercase !important;
-        color: #8A8476 !important;
-        font-weight: 400 !important;
-    }
-
-    .lum-result-bar {
-        display: flex; justify-content: space-between; align-items: baseline;
-        padding: 1rem 0 0.6rem;
-        border-top: 1px solid rgba(201,169,110,0.18);
-        margin-top: 1.5rem;
-        font-size: 0.72rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: #8A8476;
-    }
-    .lum-result-bar strong {
-        color: #1A1A1A; font-weight: 500; font-size: 0.95rem;
-        letter-spacing: 0.02em; text-transform: none;
-    }
-
-    /* reset button */
-    .stButton button {
-        background: transparent !important;
-        color: #8B6914 !important;
-        border: 1px solid rgba(201,169,110,0.4) !important;
-        border-radius: 0 !important;
-        font-size: 0.7rem !important;
-        letter-spacing: 0.2em !important;
-        text-transform: uppercase !important;
-        padding: 6px 18px !important;
-        font-family: 'Jost', sans-serif !important;
-    }
-    .stButton button:hover {
-        background: #C9A96E !important;
-        color: white !important;
-        border-color: #C9A96E !important;
-    }
-    </style>
-
-    <div class="lum-page-head">
-        <div class="eyebrow">The Edit · Spring 2026</div>
-        <h1>The <em>Collection</em></h1>
+    <div style='padding: 2rem 0 1rem'>
+        <span style='font-size:0.68rem;letter-spacing:0.35em;text-transform:uppercase;color:var(--gold)'>Discover</span>
+        <h1 style='font-family:"Cormorant Garamond",serif;font-weight:300;font-size:2.5rem;color:var(--text)'>
+            Our <em style='color:var(--gold)'>Collection</em>
+        </h1>
+        <div style='width:40px;height:1px;background:var(--gold);margin-top:0.8rem;margin-bottom:2rem'></div>
     </div>
 """, unsafe_allow_html=True)
-
 
 # ============================================================
 # INIT SESSION STATE
@@ -125,16 +40,13 @@ for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# pre-fill kategori dari URL (datang dari landing tile)
 qp = st.query_params
 if "category" in qp:
     try:
         cid = int(qp["category"])
-        # akan di-resolve ke nama setelah load kategori
         st.session_state["_pending_cat_id"] = cid
     except ValueError:
         pass
-
 
 # ============================================================
 # LOAD FILTER OPTIONS
@@ -148,28 +60,24 @@ for c in cats:
     cat_label_to_id[c["category_name"]] = c["category_id"]
     id_to_label[c["category_id"]] = c["category_name"]
 
-# resolve pending category dari URL → set selectbox value
 if "_pending_cat_id" in st.session_state:
     pending_label = id_to_label.get(st.session_state["_pending_cat_id"])
     if pending_label:
         st.session_state["kat_category"] = pending_label
     del st.session_state["_pending_cat_id"]
 
-# default price range
 min_p = float(opts.get("min_price", 0))
 max_p = float(opts.get("max_price", 1000))
 if st.session_state["kat_price"] is None:
     st.session_state["kat_price"] = (min_p, max_p)
-
 
 # ============================================================
 # FILTER UI
 # ============================================================
 search_val = st.text_input(
     "Cari Produk",
-    value=st.session_state["kat_search"],   # pakai value=, bukan key=
+    value=st.session_state["kat_search"],
     placeholder="Cari nama produk atau brand…",
-    label_visibility="visible",
 )
 st.session_state["kat_search"] = search_val
 
@@ -254,7 +162,6 @@ results = get_products(
     sort_by=sort_map[st.session_state["kat_sort"]],
 )
 
-
 # ============================================================
 # RESULT BAR + RESET
 # ============================================================
@@ -268,14 +175,16 @@ with rb_left:
         unsafe_allow_html=True,
     )
 with rb_right:
-    if st.button("Reset Filter", use_container_width=True):  # ← ganti bagian ini
+    if st.button("Reset Filter", use_container_width=True):
         for k, v in DEFAULTS.items():
             st.session_state[k] = v
         st.session_state["kat_price"] = (min_p, max_p)
         st.rerun()
 
-
 # ============================================================
 # GRID
 # ============================================================
-render_product_grid(results)
+if not results:
+    st.info("Tidak ada produk yang cocok dengan kriteria pencarian Anda.")
+else:
+    product_grid(results, columns=2)

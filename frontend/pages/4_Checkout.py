@@ -1,12 +1,18 @@
 import streamlit as st
+
+# WAJIB: set_page_config harus menjadi perintah Streamlit pertama
+st.set_page_config(page_title="Checkout - Lumière", page_icon="💳", layout="wide")
+
 from utils.session import init_session
 from utils.api_client import get_shipping_options, submit_payment, create_order
 from utils.formatter import format_price
 from components.style import inject_style
+from components.navbar import render_navbar
 from components.toast import show_success, show_error
 
-inject_style()
 init_session()
+inject_style()
+render_navbar()
 
 if "checkout_step" not in st.session_state:
     st.session_state.checkout_step = 1
@@ -20,14 +26,15 @@ cols = st.columns(3)
 for i, (col, label) in enumerate(zip(cols, steps)):
     active = i + 1 == st.session_state.checkout_step
     done = i + 1 < st.session_state.checkout_step
-    color = "#C9A96E" if active or done else "#8A8476"
+    color = "var(--gold)" if active or done else "var(--text-muted)"
+    bg_color = "var(--gold)" if done else "transparent"
+    text_color = "white" if done else "var(--gold)"
     col.markdown(f"""
         <div style='text-align:center'>
             <div style='width:32px;height:32px;border-radius:50%;
-            border:1px solid #C9A96E;display:inline-flex;align-items:center;
-            justify-content:center;font-size:0.75rem;color:#C9A96E;
-            background:{"#C9A96E" if done else "transparent"};
-            color:{"white" if done else "#C9A96E"}'>
+            border:1px solid var(--gold);display:inline-flex;align-items:center;
+            justify-content:center;font-size:0.75rem;color:{text_color};
+            background:{bg_color}'>
                 {"✓" if done else i+1}
             </div>
             <div style='font-size:0.72rem;letter-spacing:0.1em;
@@ -41,7 +48,7 @@ st.divider()
 
 # step 1: alamat
 if st.session_state.checkout_step == 1:
-    st.markdown("<h3 style='font-family:\"Cormorant Garamond\",serif;font-weight:300'>Shipping <em style=\"color:#C9A96E\">Address</em></h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='font-family:\"Cormorant Garamond\",serif;font-weight:300;color:var(--text);'>Shipping <em style=\"color:var(--gold)\">Address</em></h3>", unsafe_allow_html=True)
 
     with st.form("address_form"):
         c1, c2 = st.columns(2)
@@ -65,7 +72,7 @@ if st.session_state.checkout_step == 1:
 
 # step 2: payment
 elif st.session_state.checkout_step == 2:
-    st.markdown("<h3 style='font-family:\"Cormorant Garamond\",serif;font-weight:300'>Payment <em style=\"color:#C9A96E\">Method</em></h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='font-family:\"Cormorant Garamond\",serif;font-weight:300;color:var(--text);'>Payment <em style=\"color:var(--gold)\">Method</em></h3>", unsafe_allow_html=True)
 
     col_form, col_order = st.columns([3, 2])
 
@@ -107,12 +114,12 @@ elif st.session_state.checkout_step == 2:
                 st.rerun()
 
     with col_order:
-        st.markdown("<div style='font-family:\"Cormorant Garamond\",serif;font-size:1.2rem;margin-bottom:1rem'>Your Order</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-family:\"Cormorant Garamond\",serif;font-size:1.2rem;margin-bottom:1rem;color:var(--text);'>Your Order</div>", unsafe_allow_html=True)
         for item in cart:
             st.markdown(f"""
                 <div style='display:flex;justify-content:space-between;
                 font-size:0.82rem;padding:0.5rem 0;
-                border-bottom:1px solid rgba(201,169,110,0.25)'>
+                border-bottom:1px solid var(--border);color:var(--text)'>
                     <span>{item['product_name']} ×{item['qty']}</span>
                     <span>{format_price(item['price'] * item['qty'])}</span>
                 </div>
@@ -123,15 +130,15 @@ elif st.session_state.checkout_step == 3:
     order_id = st.session_state.get("order_id", "LM-20260516")
     st.markdown(f"""
         <div style='text-align:center;padding:4rem 0'>
-            <div style='width:80px;height:80px;border-radius:50%;background:#E8F5E9;
+            <div style='width:80px;height:80px;border-radius:50%;background:rgba(39, 174, 96, 0.1);
             display:inline-flex;align-items:center;justify-content:center;
-            font-size:2rem;color:#27AE60;margin-bottom:1.5rem'>✓</div>
+            font-size:2rem;color:var(--success);margin-bottom:1.5rem'>✓</div>
             <span style='display:block;font-size:0.68rem;letter-spacing:0.35em;
-            text-transform:uppercase;color:#C9A96E;margin-bottom:0.5rem'>order confirmed</span>
-            <h2 style='font-family:"Cormorant Garamond",serif;font-weight:300;font-size:2.5rem'>
-                Thank <em style='color:#C9A96E'>You!</em>
+            text-transform:uppercase;color:var(--gold);margin-bottom:0.5rem'>order confirmed</span>
+            <h2 style='font-family:"Cormorant Garamond",serif;font-weight:300;font-size:2.5rem;color:var(--text);'>
+                Thank <em style='color:var(--gold)'>You!</em>
             </h2>
-            <p style='color:#8A8476;margin-top:0.8rem;font-size:0.85rem'>
+            <p style='color:var(--text-muted);margin-top:0.8rem;font-size:0.85rem'>
                 order <strong>{order_id}</strong> has been confirmed
             </p>
         </div>

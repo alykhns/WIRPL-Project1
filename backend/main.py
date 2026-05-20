@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
+import os
+import uuid
 from database.connection import get_connection
+from database.supabase_conn import supabase
 from utils.jwt_helper import create_token, verify_token
-from models.schemas import LoginRequest, CartItemRequest, ProfileUpdate, OrderRequest, PaymentRequest
+from models.schemas import LoginRequest, RegisterRequest, CartItemRequest, ProfileUpdate, OrderRequest, PaymentRequest
 
 app = FastAPI(title="Lumiere API")
 
@@ -29,29 +32,79 @@ def root():
     return {"message": "Lumiere API is running"}
 
 # ── AUTH ─────────────────────────────────────────────────────────────────────
+@app.post("/register")
+def register(body: RegisterRequest):
+    try:
+        # 1. Sign up user ke Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": body.email,
+            "password": body.password,
+        })
+        
+        if not auth_response.user:
+            raise HTTPException(status_code=400, detail="Gagal mendaftarkan user")
+
+        user_id = auth_response.user.id
+
+        # 2. Simpan profil ke customer_table menggunakan upsert untuk menghindari error duplikat
+        customer_data = {
+            "customer_id": user_id,
+            "first_name": body.first_name,
+            "last_name": body.last_name,
+            "phone_number": body.phone_number
+        }
+        
+        db_response = supabase.table("customer_table").upsert(customer_data).execute()
+        
+        return {
+            "message": "Registrasi berhasil. Silakan cek email untuk verifikasi (jika diaktifkan).",
+            "user_id": user_id
+        }
+    except Exception as e:
+        # Jika terjadi error, kita bisa menangkap detailnya
+        error_msg = str(e)
+        if "already registered" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+        raise HTTPException(status_code=500, detail=f"Terjadi kesalahan: {error_msg}")
+
 @app.post("/login")
 def login(body: LoginRequest):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT a.auth_id, a.password_hash, c.customer_id, c.first_name, c.membership_level
-        FROM auth_table a
-        JOIN customer_table c ON c.auth_id = a.auth_id
-        WHERE a.email = %s
-    """, (body.email,))
-    user = cursor.fetchone()
-    cursor.close()
-    conn.close()
+    try:
+        # 1. Sign in menggunakan Supabase Auth
+        response = supabase.auth.sign_in_with_password({
+            "email": body.email,
+            "password": body.password
+        })
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Email tidak ditemukan")
+        if not response.user:
+            raise HTTPException(status_code=401, detail="Email atau password salah")
 
-    import bcrypt
-    if not bcrypt.checkpw(body.password.encode(), user["password_hash"].encode()):
-        raise HTTPException(status_code=401, detail="Password salah")
+        user_id = response.user.id
+        
+        # 2. Ambil data profil dari customer_table
+        profile = supabase.table("customer_table").select("first_name").eq("customer_id", user_id).single().execute()
+        
+        name = profile.data.get("first_name", "User") if profile.data else "User"
 
-    token = create_token(user["customer_id"])
-    return {"token": token, "customer_id": user["customer_id"], "name": user["first_name"]}
+        # 3. Kembalikan token (access_token dari Supabase) dan info user
+        return {
+            "token": response.session.access_token,
+            "customer_id": user_id,
+            "name": name
+        }
+    except Exception as e:
+        error_msg = str(e)
+        if "invalid login credentials" in error_msg.lower():
+            raise HTTPException(status_code=401, detail="Email atau password salah")
+        raise HTTPException(status_code=500, detail=f"Terjadi kesalahan: {error_msg}")
+
+@app.post("/logout")
+def logout():
+    try:
+        supabase.auth.sign_out()
+        return {"message": "Logout berhasil"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal logout: {str(e)}")
 
 # ── CART ─────────────────────────────────────────────────────────────────────
 @app.get("/cart")
@@ -154,24 +207,38 @@ def update_profile(body: ProfileUpdate, authorization: Optional[str] = Header(No
 @app.post("/orders")
 def create_order(body: OrderRequest, authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
+    
+    # 1. Simpan ke Supabase order_table
+    import random
+    order_id_num = random.randint(1000, 9999)
+    order_id_str = f"LM-{order_id_num}"
+    
+    order_data = {
+        "order_id": order_id_num,
+        "customer_id": customer_id,
+        "total_amount": body.total,
+        "status": "pending"
+    }
+    
+    try:
+        supabase.table("order_table").insert(order_data).execute()
+    except Exception as e:
+        print(f"Error Supabase Order: {e}")
+
+    # 2. Simpan ke MySQL order_item (Opsional, untuk detail)
     conn = get_connection()
     cursor = conn.cursor()
-
-    # Buat order_id unik sederhana
-    import random
-    order_id = random.randint(1000, 9999)
-
     for item in body.cart:
         cursor.execute("""
             INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price_at_purchase)
             VALUES (%s, %s, %s, %s, %s)
-        """, (random.randint(10000, 99999), order_id,
+        """, (random.randint(10000, 99999), order_id_num,
               item.get("product_id"), item.get("qty"), item.get("price")))
 
     conn.commit()
     cursor.close()
     conn.close()
-    return {"order_id": f"LM-{order_id}", "message": "Order created"}
+    return {"order_id": order_id_str, "message": "Order created"}
 
 @app.get("/orders/history")
 def get_order_history(authorization: Optional[str] = Header(None)):
@@ -228,30 +295,208 @@ def submit_payment(body: PaymentRequest, authorization: Optional[str] = Header(N
     # Simulasi payment — di production konek ke payment gateway
     return {"status": "success", "method": body.method, "total": body.total}
 
+# ── CATEGORIES ───────────────────────────────────────────────────────────────
+@app.get("/categories")
+def get_categories():
+    try:
+        # Mengambil semua kategori dari categories table (asumsi ada tabel ini di Supabase)
+        response = supabase.table("categories").select("*").execute()
+        return response.data
+    except Exception as e:
+        # Fallback jika tabel categories tidak ada, return mock data
+        return [
+            {"category_id": 1, "category_name": "Clothing"},
+            {"category_id": 2, "category_name": "Accessories"},
+            {"category_id": 3, "category_name": "Shoes"},
+        ]
+
+# ── ADMIN ────────────────────────────────────────────────────────────────────
+@app.get("/admin/stats")
+def get_admin_stats(authorization: Optional[str] = Header(None)):
+    get_customer_id(authorization) # Simple auth check
+    try:
+        # Hitung total orders, revenue, dan products
+        orders_res = supabase.table("order_table").select("total_amount", count="exact").execute()
+        products_res = supabase.table("product_table").select("product_id", count="exact").execute()
+        
+        total_orders = orders_res.count if orders_res.count is not None else 0
+        total_revenue = sum([o["total_amount"] for o in orders_res.data]) if orders_res.data else 0
+        total_products = products_res.count if products_res.count is not None else 0
+        
+        return {
+            "total_orders": total_orders,
+            "total_revenue": total_revenue,
+            "total_products": total_products,
+            "active_categories": 3 # Placeholder
+        }
+    except Exception as e:
+        return {
+            "total_orders": 0,
+            "total_revenue": 0,
+            "total_products": 0,
+            "active_categories": 0,
+            "error": str(e)
+        }
+
+@app.get("/admin/orders")
+def get_all_orders(authorization: Optional[str] = Header(None)):
+    get_customer_id(authorization)
+    try:
+        response = supabase.table("order_table").select("*").order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil semua pesanan: {str(e)}")
+
+@app.put("/admin/orders/{order_id}/status")
+def admin_update_order_status(order_id: int, status: str = Form(...), authorization: Optional[str] = Header(None)):
+    get_customer_id(authorization)
+    try:
+        response = supabase.table("order_table").update({"status": status}).eq("order_id", order_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Pesanan tidak ditemukan")
+        return {"message": "Status pesanan berhasil diperbarui", "data": response.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memperbarui status pesanan: {str(e)}")
+
 # ── PRODUCTS ──────────────────────────────────────────────────────────────────
 @app.get("/products")
-def get_products(category_id: Optional[int] = None, limit: int = 20, offset: int = 0):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    if category_id:
-        cursor.execute("""
-            SELECT * FROM product WHERE category_id = %s LIMIT %s OFFSET %s
-        """, (category_id, limit, offset))
-    else:
-        cursor.execute("SELECT * FROM product LIMIT %s OFFSET %s", (limit, offset))
-    products = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return products
+def get_products(limit: int = 20, offset: int = 0):
+    try:
+        # Mengambil data dari product_table menggunakan Supabase
+        response = supabase.table("product_table").select("*").range(offset, offset + limit - 1).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil produk: {str(e)}")
 
 @app.get("/products/{product_id}")
 def get_product(product_id: int):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM product WHERE product_id = %s", (product_id,))
-    product = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    try:
+        # Mengambil satu data berdasarkan ID
+        response = supabase.table("product_table").select("*").eq("product_id", product_id).single().execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil detail produk: {str(e)}")
+
+@app.post("/products")
+async def create_product(
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    price: float = Form(...),
+    stock: int = Form(0),
+    image: UploadFile = File(...)
+):
+    try:
+        print(f"DEBUG: Memulai proses tambah produk: {name}")
+        # 1. Generate Nama File Unik
+        file_ext = image.filename.split(".")[-1]
+        file_name = f"{uuid.uuid4()}.{file_ext}"
+        file_content = await image.read()
+
+        # 2. Upload ke Supabase Storage
+        try:
+            print(f"DEBUG: Mencoba upload ke storage: {file_name}")
+            storage_response = supabase.storage.from_("product-images").upload(
+                path=file_name,
+                file=file_content,
+                file_options={"content-type": image.content_type}
+            )
+            print("DEBUG: Upload storage berhasil")
+        except Exception as storage_err:
+            print(f"DEBUG ERROR STORAGE: {str(storage_err)}")
+            raise HTTPException(status_code=500, detail=f"Gagal di STORAGE (Upload Gambar): {str(storage_err)}")
+
+        # 3. Dapatkan Public URL
+        image_url = supabase.storage.from_("product-images").get_public_url(file_name)
+        print(f"DEBUG: URL Gambar: {image_url}")
+
+        # 4. Simpan ke Database
+        try:
+            print("DEBUG: Mencoba insert ke database")
+            product_data = {
+                "name": name,
+                "description": description,
+                "price": price,
+                "stock": stock,
+                "image_url": image_url
+            }
+
+            db_response = supabase.table("product_table").insert(product_data).execute()
+            print("DEBUG: Insert database berhasil")
+
+            return {
+                "message": "Produk berhasil ditambahkan",
+                "data": db_response.data[0] if db_response.data else None
+            }
+        except Exception as db_err:
+            print(f"DEBUG ERROR DB: {str(db_err)}")
+            raise HTTPException(status_code=500, detail=f"Gagal di DATABASE (Insert Tabel): {str(db_err)}")
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        print(f"DEBUG ERROR UMUM: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Terjadi kesalahan sistem: {str(e)}")
+
+@app.put("/products/{product_id}")
+async def update_product(
+    product_id: int,
+    name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    price: Optional[float] = Form(None),
+    stock: Optional[int] = Form(None),
+    image: Optional[UploadFile] = File(None)
+):
+    try:
+        # 1. Kumpulkan data yang ingin diupdate saja
+        update_data = {}
+        if name is not None: update_data["name"] = name
+        if description is not None: update_data["description"] = description
+        if price is not None: update_data["price"] = price
+        if stock is not None: update_data["stock"] = stock
+
+        # 2. Jika ada file gambar baru, upload ke Storage
+        if image and image.filename:
+            file_ext = image.filename.split(".")[-1]
+            file_name = f"{uuid.uuid4()}.{file_ext}"
+            file_content = await image.read()
+
+            supabase.storage.from_("product-images").upload(
+                path=file_name,
+                file=file_content,
+                file_options={"content-type": image.content_type}
+            )
+
+            image_url = supabase.storage.from_("product-images").get_public_url(file_name)
+            update_data["image_url"] = image_url
+
+        # 3. Cek apakah ada data yang akan diupdate
+        if not update_data:
+            return {"message": "Tidak ada data yang diperbarui", "data": None}
+
+        # 4. Update ke database
+        db_response = supabase.table("product_table").update(update_data).eq("product_id", product_id).execute()
+
+        if not db_response.data:
+            raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
+
+        return {
+            "message": "Produk berhasil diperbarui",
+            "data": db_response.data[0]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memperbarui produk: {str(e)}")
+
+@app.delete("/products/{product_id}")
+def delete_product(product_id: int):
+    try:
+        # Hapus data dari product_table
+        db_response = supabase.table("product_table").delete().eq("product_id", product_id).execute()
+
+        if not db_response.data:
+            raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
+
+        return {"message": f"Produk dengan ID {product_id} berhasil dihapus"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal menghapus produk: {str(e)}")

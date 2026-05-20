@@ -12,9 +12,9 @@ def get_status_color(status):
 
 def get_status_bg(status):
     backgrounds = {
-        "delivered":  "#E8F5E9",
-        "shipping":   "#FFF3E0",
-        "processing": "#E3F2FD",
-        "cancelled":  "#FFEBEE",
+        "delivered":  "rgba(46, 125, 50, 0.1)",
+        "shipping":   "rgba(230, 81, 0, 0.1)",
+        "processing": "rgba(21, 101, 192, 0.1)",
+        "cancelled":  "rgba(183, 28, 28, 0.1)",
     }
-    return backgrounds.get(status.lower(), "#F5F5F5")
+    return backgrounds.get(status.lower(), "rgba(138, 132, 118, 0.1)")

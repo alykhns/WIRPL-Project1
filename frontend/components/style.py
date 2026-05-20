@@ -1,109 +1,336 @@
 import streamlit as st
 
 def inject_style():
-    st.markdown("""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
-
+    theme = st.session_state.get("theme", "light")
+    
+    if theme == "light":
+        theme_css = """
         :root {
             --gold: #C9A96E;
             --gold-light: #E8D5B0;
             --gold-dark: #8B6914;
-            --cream: #FAF7F2;
-            --charcoal: #1A1A1A;
-            --charcoal-mid: #2D2D2D;
-            --muted: #8A8476;
-            --border: rgba(201,169,110,0.25);
-            --border-strong: rgba(201,169,110,0.5);
+            --bg: linear-gradient(135deg, #FAF7F2 0%, #EAE4D3 100%);
+            --text: #000000;
+            --text-muted: #3D3D3D;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --btn-text: #000000;
+            --btn-bg: #FFFFFF;
+            --border: rgba(201,169,110,0.4);
+            --border-strong: rgba(201,169,110,0.6);
             --danger: #C0392B;
             --success: #27AE60;
+            --hr: rgba(201,169,110,0.25);
+            --hero-bg: linear-gradient(135deg, #FAF7F2 0%, #E8D5B0 100%);
+            --hero-text: #000000;
         }
+        """
+    else:
+        theme_css = """
+        :root {
+            --gold: #D4AF37;
+            --gold-light: #F3E5AB;
+            --gold-dark: #AA8822;
+            --bg: #121212;
+            --text: #FFFFFF;
+            --text-muted: #B0B0B0;
+            --card-bg: #1E1E1E;
+            --btn-text: #FFFFFF;
+            --btn-bg: #1E1E1E;
+            --border: rgba(212,175,55,0.4);
+            --border-strong: rgba(212,175,55,0.7);
+            --danger: #CF6679;
+            --success: #03DAC6;
+            --hr: rgba(255,255,255,0.1);
+            --hero-bg: linear-gradient(135deg, #121212 0%, #1E1E1E 100%);
+            --hero-text: #FFFFFF;
+        }
+        """
 
-        html, body, [class*="css"] {
+    st.markdown(f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
+
+        {{theme_css}}
+
+        /* Base resets */
+        html, body, [data-testid="stAppViewContainer"] {{
             font-family: 'Jost', sans-serif;
-            background-color: #FAF7F2;
-            color: #1A1A1A;
-        }
+            background: var(--bg) !important;
+            color: var(--text) !important;
+        }}
 
-        /* hide sidebar & hamburger */
-        [data-testid="stSidebar"] { display: none !important; }
-        [data-testid="collapsedControl"] { display: none !important; }
-        [data-testid="stSidebarNav"] { display: none !important; }
-        [data-testid="stHeader"] { display: none !important; }
-        [data-testid="stToolbar"] { display: none !important; }
-        header { display: none !important; }
+        /* Sidebar styling */
+        [data-testid="stSidebar"] {{
+            background: var(--bg) !important;
+            border-right: 1px solid var(--border);
+        }}
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div {{
+            color: var(--text) !important;
+        }}
 
-        /* push content down so navbar doesn't overlap */
-        .main .block-container {
-            padding-top: 5rem !important;
+        /* Headers and Titles */
+        h1, h2, h3, h4, h5, h6 {{
+            color: var(--text) !important;
+        }}
+
+        /* Hide Streamlit default UI elements */
+        [data-testid="stHeader"], [data-testid="stToolbar"], header {{ 
+            display: none !important; 
+        }}
+        
+        [data-testid="stSidebarNav"] {{ display: none !important; }}
+
+        /* Remove all top spacing */
+        .main .block-container {{
+            padding-top: 0 !important;
+            margin-top: 0 !important;
             max-width: 1100px;
-        }
+            background-color: transparent;
+        }}
+        [data-testid="stAppViewContainer"] {{
+            padding-top: 0 !important;
+        }}
+        .main {{
+            padding-top: 0 !important;
+        }}
+        [data-testid="stMainBlockContainer"] {{
+            padding-top: 0 !important;
+        }}
 
-        /* navbar */
-        .lum-nav {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            z-index: 9999;
-            height: 64px;
-            background: rgba(250,247,242,0.96);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(201,169,110,0.25);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 2.5rem;
-        }
-        .lum-nav-logo {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 1.7rem;
-            font-weight: 400;
-            letter-spacing: 0.08em;
-            color: #1A1A1A;
-            text-decoration: none;
-        }
-        .lum-nav-logo em { color: #C9A96E; font-style: italic; }
+        /* Style for st.page_link */
+        a[data-testid="stPageLink"] {{
+            color: var(--btn-text) !important;
+            text-decoration: none !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.2em !important;
+            font-size: 0.85rem !important;
+            font-weight: 700 !important;
+            transition: all 0.3s !important;
+            background-color: transparent !important;
+            border: none !important;
+            padding: 0.5rem 1rem !important;
+        }}
+        a[data-testid="stPageLink"]:hover {{
+            color: var(--text) !important;
+        }}
 
-        .lum-nav-links {
-            display: flex;
-            gap: 2.2rem;
-            list-style: none;
-            margin: 0; padding: 0;
-        }
-        .lum-nav-links a {
-            font-size: 0.72rem;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #8A8476;
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-        .lum-nav-links a:hover { color: #1A1A1A; }
-
-        .lum-nav-cart {
-            font-size: 0.72rem;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #8A8476;
-            text-decoration: none;
-            border: 1px solid rgba(201,169,110,0.4);
-            padding: 6px 16px;
-            transition: all 0.2s;
-        }
-        .lum-nav-cart:hover {
-            background: #C9A96E;
-            color: white;
-            border-color: #C9A96E;
-        }
+        /* Input fields, selectboxes, and dropdowns */
+        div[data-baseweb="input"], 
+        div[data-baseweb="select"], 
+        div[data-baseweb="popover"], 
+        div[data-baseweb="menu"],
+        div[role="listbox"],
+        div[role="menu"],
+        div[role="dialog"],
+        .stTextInput input {{
+            background-color: var(--card-bg) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            -webkit-text-fill-color: var(--text) !important;
+        }}
+        
+        /* Show password button (eye icon) and other input-nested buttons */
+        div[data-baseweb="input"] button {{
+            background-color: transparent !important;
+            border: none !important;
+        }}
+        
+        div[data-baseweb="input"] button:hover {{
+            background-color: rgba(255, 255, 255, 0.1) !important;
+        }}
+        
+        /* Selectbox specific adjustments */
+        div[data-baseweb="select"] > div {{
+            background-color: var(--card-bg) !important;
+            color: var(--text) !important;
+        }}
         </style>
+    """.replace("{theme_css}", theme_css), unsafe_allow_html=True)
 
-        <nav class="lum-nav">
-            <a class="lum-nav-logo" href="/">Lumi<em>è</em>re</a>
-            <ul class="lum-nav-links">
-                <li><a href="/">Home</a></li>
-                <li><a href="/Katalog">Katalog</a></li>
-                <li><a href="/Detail_Produk">Detail Produk</a></li>
-                <li><a href="/Riwayat">Riwayat</a></li>
-            </ul>
-            <a class="lum-nav-cart" href="/Cart">◇ &nbsp;Cart</a>
-        </nav>
+    # SEPARATE injection for dropdown/popover with HARDCODED colors
+    # BaseWeb portals render outside the main Streamlit container,
+    # so CSS variables defined on :root may not reach them reliably.
+    if theme == "dark":
+        dropdown_bg = "#1E1E1E"
+        dropdown_text = "#FFFFFF"
+        dropdown_hover = "#AA8822"
+        dropdown_border = "rgba(212,175,55,0.4)"
+    else:
+        dropdown_bg = "#FFFFFF"
+        dropdown_text = "#000000"
+        dropdown_hover = "#F0EBE0"
+        dropdown_border = "rgba(201,169,110,0.4)"
+
+    st.markdown(f"""
+        <style>
+        /* Dropdown/Selectbox popup - hardcoded colors for portal elements */
+        ul[role="listbox"],
+        div[data-baseweb="popover"] ul,
+        div[data-baseweb="menu"],
+        div[data-baseweb="popover"] div[data-baseweb="menu"] {{
+            background-color: {dropdown_bg} !important;
+            border: 1px solid {dropdown_border} !important;
+        }}
+
+        ul[role="listbox"] li,
+        div[data-baseweb="menu"] li,
+        li[role="option"] {{
+            background-color: {dropdown_bg} !important;
+            color: {dropdown_text} !important;
+        }}
+
+        ul[role="listbox"] li:hover,
+        div[data-baseweb="menu"] li:hover,
+        li[role="option"]:hover {{
+            background-color: {dropdown_hover} !important;
+            color: {dropdown_text} !important;
+        }}
+
+        ul[role="listbox"] li[aria-selected="true"],
+        li[role="option"][aria-selected="true"] {{
+            background-color: {dropdown_hover} !important;
+            color: {dropdown_text} !important;
+            font-weight: 700 !important;
+        }}
+
+        /* Popover container itself */
+        div[data-baseweb="popover"] > div {{
+            background-color: {dropdown_bg} !important;
+            border: 1px solid {dropdown_border} !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Third style block: remaining global styles
+    st.markdown(f"""
+        <style>
+        /* Radio buttons contrast */
+        [data-testid="stMarkdownContainer"] p {{
+            color: var(--text) !important;
+        }}
+        
+        input, select, textarea, input[type="text"], input[type="password"], input[type="email"], input[type="tel"] {{
+            color: var(--text) !important;
+            -webkit-text-fill-color: var(--text) !important;
+        }}
+        ::placeholder {{
+            color: var(--text-muted) !important;
+            opacity: 0.7 !important;
+        }}
+        
+        /* Tabs */
+        button[data-baseweb="tab"] {{
+            color: var(--text-muted) !important;
+        }}
+        button[data-baseweb="tab"][aria-selected="true"] {{
+            color: var(--gold) !important;
+            border-bottom-color: var(--gold) !important;
+        }}
+
+        /* Buttons - Global Override */
+        button[data-testid^="baseButton"], button[kind="secondary"], button[kind="primary"], div.stButton > button, .stButton button, .stFormSubmitButton button {{
+            border: 1px solid var(--border) !important;
+            background-color: var(--btn-bg) !important;
+            color: var(--btn-text) !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.08em !important;
+            transition: all 0.3s ease !important;
+        }}
+        button[data-testid^="baseButton"]:hover, button[kind="secondary"]:hover, button[kind="primary"]:hover, div.stButton > button:hover, .stButton button:hover, .stFormSubmitButton button:hover,
+        button[data-testid^="baseButton"]:focus, button[data-testid^="baseButton"]:active {{
+            border-color: var(--gold) !important;
+            color: var(--gold) !important;
+            box-shadow: 0 0 10px rgba(201,169,110,0.2) !important;
+            background-color: var(--card-bg) !important;
+        }}
+        
+        /* Theme Toggle specific - forcing opaque background in dark mode */
+        .stButton button[data-testid="baseButton-secondary"] {{
+            background-color: var(--card-bg) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+        }}
+
+        /* Cards & Containers */
+        .lum-card, [data-testid="stForm"] {{
+            border: 1px solid var(--border) !important;
+            padding: 1.5rem;
+            background: var(--card-bg) !important;
+            border-radius: 4px;
+            color: var(--text) !important;
+        }}
+        
+        /* Metrics */
+        [data-testid="stMetricValue"] {{
+            color: var(--gold) !important;
+        }}
+        [data-testid="stMetricLabel"] {{
+            color: var(--text-muted) !important;
+        }}
+        
+        /* Divider */
+        hr {{
+            border-top: 1px solid var(--hr) !important;
+        }}
+
+        /* Caption styling for better readability */
+        [data-testid="stCaptionContainer"], .stCaption {{
+            color: var(--text-muted) !important;
+            font-size: 0.8rem !important;
+            opacity: 1 !important;
+        }}
+
+        /* Success/Error message colors */
+        .stAlert {{
+            background-color: var(--card-bg) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+        }}
+
+        /* Form Label Contrast */
+        label[data-testid="stWidgetLabel"] p {{
+            color: var(--text) !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.02em !important;
+        }}
+
+        /* THE ULTIMATE CENTERING OVERRIDE - REVISED */
+        .stPageLink, .stButton {{
+            display: flex !important;
+            justify-content: center !important;
+            width: 100% !important;
+            text-align: center !important;
+        }}
+        
+        .stPageLink > a, .stButton > button {{
+            width: auto !important;
+            min-width: 200px !important;
+            margin: 0 auto !important;
+        }}
+
+        /* Prevent form buttons from being centered if not desired */
+        [data-testid="stForm"] .stButton {{
+            justify-content: flex-start !important;
+        }}
+        [data-testid="stForm"] .stButton > button {{
+            margin: 0 !important;
+            width: 100% !important;
+        }}
+
+        /* Table & DataFrame Styling - Forced Light-ish for compatibility */
+        .stTable, [data-testid="stTable"], [data-testid="stDataFrame"] {{
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border-radius: 4px !important;
+        }}
+        .stTable th {{
+            background-color: #F0F2F6 !important;
+            color: #000000 !important;
+        }}
+        .stTable td {{
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border-bottom: 1px solid #E6E9EF !important;
+        }}
+        </style>
     """, unsafe_allow_html=True)
