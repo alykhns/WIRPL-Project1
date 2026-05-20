@@ -45,7 +45,7 @@ with col_image:
 with col_info:
     st.markdown(f"""
         <h1 style='font-family:"Cormorant Garamond",serif;font-weight:400;margin-bottom:0;color:var(--text);'>
-            {product.get('product_name', 'Nama Produk')}
+            {product.get('name', 'Nama Produk')}
         </h1>
         <h3 style='color:var(--gold); margin-top:0.5rem;'>{format_price(product.get('price', 0))}</h3>
         <hr style='border: 0; border-top: 1px solid var(--hr);'>
@@ -80,10 +80,9 @@ with col_info:
                 if not is_logged_in():
                     show_error("Silakan login terlebih dahulu untuk berbelanja.")
                 else:
-                    result = add_to_cart(product_id, qty)
-                    # Check if result has status field (from real API) or is a dict-like object (from mock)
-                    if result and (result.get("status") == "success" or "product_id" in result):
-                        show_success(f"{qty} {product.get('product_name')} ditambahkan ke keranjang!")
+                    success = add_to_cart(product_id, qty)
+                    if success:
+                        show_success(f"{qty} {product.get('name')} ditambahkan ke keranjang!")
                     else:
                         error_msg = result.get("detail", "Gagal menambahkan ke keranjang.") if isinstance(result, dict) else "Gagal menambahkan ke keranjang."
                         show_error(error_msg)
@@ -96,7 +95,7 @@ with col_info:
                     # Bypass langsung ke checkout membawa 1 item ini
                     st.session_state["checkout_cart"] = [{
                         "product_id": product_id,
-                        "product_name": product.get('product_name'),
+                        "name": product.get('name'),
                         "price": product.get('price'),
                         "qty": qty
                     }]

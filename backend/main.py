@@ -56,22 +56,32 @@ def register(body: RegisterRequest):
         if not auth_response.user:
             raise HTTPException(status_code=400, detail="Gagal mendaftarkan user")
 
+        # Cek apakah user sudah pernah terdaftar (identities kosong = email sudah ada)
+        if hasattr(auth_response.user, 'identities') and auth_response.user.identities is not None and len(auth_response.user.identities) == 0:
+            raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+
         user_id = auth_response.user.id
 
         # 2. Simpan profil ke customer_table menggunakan upsert untuk menghindari error duplikat
-        customer_data = {
-            "customer_id": user_id,
-            "first_name": body.first_name,
-            "last_name": body.last_name,
-            "phone_number": body.phone_number
-        }
-        
-        db_response = supabase.table("customer_table").upsert(customer_data).execute()
+        try:
+            customer_data = {
+                "customer_id": user_id,
+                "first_name": body.first_name,
+                "last_name": body.last_name,
+                "phone_number": body.phone_number
+            }
+            
+            db_response = supabase.table("customer_table").upsert(customer_data).execute()
+        except Exception as db_error:
+            # Log error tapi jangan gagalkan registrasi karena auth sudah berhasil
+            print(f"[WARNING] Profil gagal disimpan untuk user {user_id}: {db_error}")
         
         return {
             "message": "Registrasi berhasil. Silakan cek email untuk verifikasi (jika diaktifkan).",
             "user_id": user_id
         }
+    except HTTPException:
+        raise
     except Exception as e:
         # Jika terjadi error, kita bisa menangkap detailnya
         error_msg = str(e)

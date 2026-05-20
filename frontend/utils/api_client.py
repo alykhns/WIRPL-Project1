@@ -40,7 +40,7 @@ def get_products(
         results = list(MOCK_PRODUCTS)
         if search:
             q = search.lower().strip()
-            results = [p for p in results if q in p["product_name"].lower() or q in p["brand"].lower()]
+            results = [p for p in results if q in p["name"].lower() or q in p["brand"].lower()]
         if category_id is not None:
             results = [p for p in results if p["category_id"] == category_id]
         if sort_by == "price_asc": results.sort(key=lambda p: p["price"])
@@ -103,8 +103,8 @@ def add_to_cart(product_id, quantity=1):
         if prod:
             new_item = {
                 "cart_id": (max((i.get("cart_id", 1000) for i in MOCK_CART), default=1000) + 1),
-                "product_id": prod["product_id"], "qty": quantity, "product_name": prod["product_name"],
-                "price": prod["price"], "image_initial": prod["product_name"][0],
+                "product_id": prod["product_id"], "qty": quantity, "name": prod["name"],
+                "price": prod["price"], "image_initial": prod["name"][0],
             }
             MOCK_CART.append(new_item)
             return new_item
@@ -226,8 +226,11 @@ def register(email, password, first_name, last_name, phone_number):
         "last_name": last_name,
         "phone_number": phone_number
     }
-    res = requests.post(f"{BASE_URL}/register", json=payload)
-    return res.json() if res.ok else None
+    try:
+        res = requests.post(f"{BASE_URL}/register", json=payload)
+        return res.json()
+    except Exception:
+        return {"detail": "Tidak dapat terhubung ke server."}
 
 def logout_api():
     res = requests.post(f"{BASE_URL}/logout", headers=get_headers())

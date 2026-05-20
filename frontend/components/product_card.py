@@ -17,7 +17,7 @@ def product_card(product, show_add_to_cart=True):
             if image_url:
                 st.image(image_url, use_container_width=True)
             else:
-                image_initial = product.get("product_name", "P")[0].upper()
+                image_initial = product.get("name", "P")[0].upper()
                 st.markdown(f"""
                     <div style="
                         width: 100%;
@@ -45,7 +45,7 @@ def product_card(product, show_add_to_cart=True):
             
             st.markdown(f"""
                 <h3 style="margin: 4px 0 8px 0; font-size: 1.3rem; font-family: 'Cormorant Garamond', serif; color: var(--text); font-weight: 400;">
-                    {product.get('product_name', 'Product')}
+                    {product.get('name', 'Product')}
                 </h3>
             """, unsafe_allow_html=True)
             
@@ -105,7 +105,7 @@ def product_card(product, show_add_to_cart=True):
                     if inventory > 0:
                         result = add_to_cart(product_id=product.get("product_id"), quantity=1)
                         if result:
-                            show_success(f"✓ {product.get('product_name', 'Product')} added to cart!")
+                            show_success(f"✓ {product.get('name', 'Product')} added to cart!")
                         else:
                             show_error("✗ Failed to add product to cart")
                     else:
