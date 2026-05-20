@@ -84,6 +84,17 @@ def delete_product(product_id):
     res = requests.delete(f"{BASE_URL}/products/{product_id}", headers=get_headers())
     return res.ok
 
+def get_product_filter_options():
+    res = requests.get(f"{BASE_URL}/products/filter-options", headers=get_headers())
+    if res.ok:
+        return res.json()
+    # fallback default kosong
+    return {
+        "brands": [], "colors": [], "sizes": [],
+        "materials": [], "styles": [], "seasons": [],
+        "min_price": 0, "max_price": 1000,
+    }
+
 # ============================================================
 # CART  
 # ============================================================

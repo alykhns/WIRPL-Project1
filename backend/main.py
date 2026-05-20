@@ -500,3 +500,29 @@ def delete_product(product_id: int):
         return {"message": f"Produk dengan ID {product_id} berhasil dihapus"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal menghapus produk: {str(e)}")
+
+@app.get("/products/filter-options")
+def get_filter_options():
+    try:
+        res = supabase.table("product_table").select("brand, color, size, material, style, season, price").execute()
+        data = res.data or []
+        return {
+            "brands":    list({p["brand"]    for p in data if p.get("brand")}),
+            "colors":    list({p["color"]    for p in data if p.get("color")}),
+            "sizes":     list({p["size"]     for p in data if p.get("size")}),
+            "materials": list({p["material"] for p in data if p.get("material")}),
+            "styles":    list({p["style"]    for p in data if p.get("style")}),
+            "seasons":   list({p["season"]   for p in data if p.get("season")}),
+            "min_price": min((p["price"] for p in data if p.get("price")), default=0),
+            "max_price": max((p["price"] for p in data if p.get("price")), default=1000),
+        }
+    except Exception as e:
+        return {
+            "brands": [], "colors": [], "sizes": [],
+            "materials": [], "styles": [], "seasons": [],
+            "min_price": 0, "max_price": 1000,
+        }
+    
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

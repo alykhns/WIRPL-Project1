@@ -148,6 +148,4 @@ else:
         if st.button("Proceed to Checkout →", use_container_width=True):
             st.switch_page("pages/4_Checkout.py")
 
-if new_qty != st.session_state.get(f"qty_{item['cart_id']}", item["qty"]):
-    update_cart_item(item["cart_id"], new_qty)
-    st.rerun()
+
