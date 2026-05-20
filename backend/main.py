@@ -452,6 +452,7 @@ async def create_product(
     description: Optional[str] = Form(None),
     price: float = Form(...),
     stock: int = Form(0),
+    criteria: str = Form(...),
     image: UploadFile = File(...)
 ):
     try:
@@ -486,6 +487,7 @@ async def create_product(
                 "description": description,
                 "price": price,
                 "stock": stock,
+                "criteria": criteria,
                 "image_url": image_url
             }
 
@@ -513,6 +515,7 @@ async def update_product(
     description: Optional[str] = Form(None),
     price: Optional[float] = Form(None),
     stock: Optional[int] = Form(None),
+    criteria: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None)
 ):
     try:
@@ -522,6 +525,7 @@ async def update_product(
         if description is not None: update_data["description"] = description
         if price is not None: update_data["price"] = price
         if stock is not None: update_data["stock"] = stock
+        if criteria is not None: update_data["criteria"] = criteria
 
         # 2. Jika ada file gambar baru, upload ke Storage
         if image and image.filename:
