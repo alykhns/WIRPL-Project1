@@ -107,7 +107,7 @@ st.markdown("""
 
 
 # ============================================================
-# INIT SESSION STATE untuk simpan filter state
+# INIT SESSION STATE
 # ============================================================
 DEFAULTS = {
     "kat_search": "",
@@ -167,8 +167,9 @@ if st.session_state["kat_price"] is None:
 # ============================================================
 search_val = st.text_input(
     "Cari Produk",
-    value=st.session_state["kat_search"],
+    value=st.session_state["kat_search"],   # pakai value=, bukan key=
     placeholder="Cari nama produk atau brand…",
+    label_visibility="visible",
 )
 st.session_state["kat_search"] = search_val
 
@@ -225,7 +226,6 @@ with st.expander("◇  Filter Lainnya"):
             step=10.0,
         )
         st.session_state["kat_price"] = price_val
-
 
 # ============================================================
 # RESOLVE FILTER VALUES → panggil API

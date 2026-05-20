@@ -58,17 +58,13 @@ else:
                     </div>
                 """, unsafe_allow_html=True)
 
-                print(type("Quantity"))
-                print(repr(item["qty"]))
-                print(type(int(item["qty"])))
-                print(st.__version__)
-
                 new_qty = st.number_input(
-                    "Quantity",
+                    label="Quantity",
                     min_value=1,
                     max_value=10,
                     value=int(item["qty"]),
-                    key=f"qty_{item['cart_id']}"
+                    key=f"qty_{item['cart_id']}",
+                    label_visibility="collapsed",
                 )
                 if new_qty != item["qty"]:
                     update_cart_item(item["cart_id"], new_qty)
@@ -92,7 +88,7 @@ else:
 
     with col_summary:
         subtotal = sum(
-            float(i["price"]) * st.session_state.get(f"qty_{i['cart_id']}", i["qty"])
+            i["price"] * st.session_state.get(f"qty_{i['cart_id']}", i["qty"])
             for i in cart
         )
         shipping = 0 if subtotal >= 500000 else 45000
