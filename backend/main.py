@@ -126,12 +126,22 @@ def add_to_cart(body: dict, authorization: Optional[str] = Header(None)):
         if not product_id:
             raise HTTPException(status_code=400, detail="product_id required")
         
-        payload = {
-            "customer_id": customer_id,
-            "product_id": product_id,
-            "quantity": qty,
-        }
-        response = supabase.table("cart_table").insert(payload).execute()
+        # Cek apakah produk sudah ada di cart user
+        check_exist = supabase.table("cart_table").select("*").eq("customer_id", customer_id).eq("product_id", product_id).execute()
+        
+        if check_exist.data:
+            # Jika sudah ada, update quantity
+            new_qty = check_exist.data[0]["quantity"] + qty
+            response = supabase.table("cart_table").update({"quantity": new_qty}).eq("customer_id", customer_id).eq("product_id", product_id).execute()
+        else:
+            # Jika belum ada, insert baris baru
+            payload = {
+                "customer_id": customer_id,
+                "product_id": product_id,
+                "quantity": qty,
+            }
+            response = supabase.table("cart_table").insert(payload).execute()
+        
         return {"status": "success", "data": response.data}
     except HTTPException as he:
         return {"status": "error", "detail": he.detail, "code": he.status_code}
