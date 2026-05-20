@@ -47,11 +47,11 @@ with col2:
                     show_error("Mohon lengkapi data yang wajib diisi.")
                 else:
                     res = register(r_email, r_pass, r_first, r_last, r_phone)
-                    if res:
+                    if "user_id" in res:
                         show_success("Registrasi Berhasil! Silakan Login.")
                         st.switch_page("pages/7_Login.py")
                     else:
-                        show_error("Registrasi Gagal. Silakan coba lagi.")
+                        show_error(f"Registrasi Gagal: {res.get('detail', 'Silakan coba lagi.')}")
 
     st.markdown("""
         <div style='text-align:center;margin-top:1.5rem'>

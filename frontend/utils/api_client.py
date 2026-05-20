@@ -184,8 +184,11 @@ def register(email, password, first_name, last_name, phone_number):
         "last_name": last_name,
         "phone_number": phone_number
     }
-    res = requests.post(f"{BASE_URL}/register", json=payload)
-    return res.json() if res.ok else None
+    try:
+        res = requests.post(f"{BASE_URL}/register", json=payload)
+        return res.json()
+    except Exception:
+        return {"detail": "Tidak dapat terhubung ke server."}
 
 def logout_api():
     res = requests.post(f"{BASE_URL}/logout", headers=get_headers())
