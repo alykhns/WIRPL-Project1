@@ -86,9 +86,9 @@ def login(body: LoginRequest):
         
         name = profile.data.get("first_name", "User") if profile.data else "User"
 
-        # 3. Kembalikan token (access_token dari Supabase) dan info user
+        # 3. Kembalikan token yang ditandatangani backend agar verifier lokal bisa memvalidasi
         return {
-            "token": response.session.access_token,
+            "token": create_token(user_id),
             "customer_id": user_id,
             "name": name
         }
@@ -110,63 +110,52 @@ def logout():
 @app.get("/cart")
 def get_cart(authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT c.cart_id, c.customer_id, c.product_id, c.qty,
-               p.product_name, p.brand, p.price, p.color, p.size,
-               p.material, p.style, p.season, p.category_id,
-               LEFT(p.product_name, 1) AS image_initial
-        FROM cart c
-        JOIN product p ON p.product_id = c.product_id
-        WHERE c.customer_id = %s
-    """, (customer_id,))
-    items = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return items
+    try:
+        response = supabase.table("cart_table").select("*").eq("customer_id", customer_id).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil cart: {str(e)}")
 
 @app.post("/cart")
-def add_to_cart(body: CartItemRequest, authorization: Optional[str] = Header(None)):
+def add_to_cart(body: dict, authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO cart (customer_id, product_id, qty)
-        VALUES (%s, %s, %s)
-    """, (customer_id, body.product_id, body.qty))
-    conn.commit()
-    cart_id = cursor.lastrowid
-    cursor.close()
-    conn.close()
-    return {"cart_id": cart_id, "message": "Item added to cart"}
+    try:
+        qty = body.get("qty", body.get("quantity", 1))
+        product_id = body.get("product_id")
+        
+        if not product_id:
+            raise HTTPException(status_code=400, detail="product_id required")
+        
+        payload = {
+            "customer_id": customer_id,
+            "product_id": product_id,
+            "quantity": qty,
+        }
+        response = supabase.table("cart_table").insert(payload).execute()
+        return {"status": "success", "data": response.data}
+    except HTTPException as he:
+        return {"status": "error", "detail": he.detail, "code": he.status_code}
+    except Exception as e:
+        return {"status": "error", "detail": f"{type(e).__name__}: {str(e)}", "code": 500}
 
 @app.put("/cart/{cart_id}")
 def update_cart_item(cart_id: int, body: CartItemRequest, authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE cart SET qty = %s
-        WHERE cart_id = %s AND customer_id = %s
-    """, (body.qty, cart_id, customer_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return {"message": "Cart updated"}
+    try:
+        quantity = body.qty if body.qty is not None else body.quantity
+        response = supabase.table("cart_table").update({"quantity": quantity}).eq("cart_id", cart_id).eq("customer_id", customer_id).execute()
+        return {"message": "Cart updated", "data": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal update cart: {str(e)}")
 
 @app.delete("/cart/{cart_id}")
 def delete_cart_item(cart_id: int, authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        DELETE FROM cart WHERE cart_id = %s AND customer_id = %s
-    """, (cart_id, customer_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return {"message": "Item removed"}
+    try:
+        response = supabase.table("cart_table").delete().eq("cart_id", cart_id).eq("customer_id", customer_id).execute()
+        return {"message": "Item removed", "data": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal menghapus cart: {str(e)}")
 
 # ── PROFILE ───────────────────────────────────────────────────────────────────
 @app.get("/customer/profile")
@@ -243,41 +232,11 @@ def create_order(body: OrderRequest, authorization: Optional[str] = Header(None)
 @app.get("/orders/history")
 def get_order_history(authorization: Optional[str] = Header(None)):
     customer_id = get_customer_id(authorization)
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT oi.order_id, oi.product_id, oi.quantity, oi.price_at_purchase,
-               p.product_name, p.brand
-        FROM order_item oi
-        JOIN product p ON p.product_id = oi.product_id
-        WHERE oi.order_id IS NOT NULL
-        LIMIT 20
-    """)
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    # Group by order_id
-    orders = {}
-    for row in rows:
-        oid = str(row["order_id"])
-        if oid not in orders:
-            orders[oid] = {
-                "order_id": f"LM-{oid}",
-                "date": "2026",
-                "status": "delivered",
-                "items": [],
-                "total": 0,
-            }
-        orders[oid]["items"].append({
-            "product_name": row["product_name"],
-            "brand": row["brand"],
-            "qty": row["quantity"],
-            "price_at_purchase": float(row["price_at_purchase"]) if row["price_at_purchase"] else 0,
-        })
-        orders[oid]["total"] += float(row["price_at_purchase"] or 0) * (row["quantity"] or 1)
-
-    return list(orders.values())
+    try:
+        response = supabase.table("order_table").select("*").eq("customer_id", customer_id).order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil riwayat order: {str(e)}")
 
 # ── SHIPPING ──────────────────────────────────────────────────────────────────
 @app.get("/shipping")
