@@ -84,7 +84,8 @@ with col_info:
                     if success:
                         show_success(f"{qty} {product.get('name')} ditambahkan ke keranjang!")
                     else:
-                        show_error("Gagal menambahkan ke keranjang.")
+                        error_msg = result.get("detail", "Gagal menambahkan ke keranjang.") if isinstance(result, dict) else "Gagal menambahkan ke keranjang."
+                        show_error(error_msg)
         
         with c2:
             if st.button("💳 Beli Langsung", use_container_width=True):
