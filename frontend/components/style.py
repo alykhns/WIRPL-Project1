@@ -80,11 +80,21 @@ def inject_style():
         
         [data-testid="stSidebarNav"] {{ display: none !important; }}
 
-        /* push content down */
+        /* Remove all top spacing */
         .main .block-container {{
-            padding-top: 1rem !important;
+            padding-top: 0 !important;
+            margin-top: 0 !important;
             max-width: 1100px;
             background-color: transparent;
+        }}
+        [data-testid="stAppViewContainer"] {{
+            padding-top: 0 !important;
+        }}
+        .main {{
+            padding-top: 0 !important;
+        }}
+        [data-testid="stMainBlockContainer"] {{
+            padding-top: 0 !important;
         }}
 
         /* Style for st.page_link */
@@ -134,7 +144,66 @@ def inject_style():
             background-color: var(--card-bg) !important;
             color: var(--text) !important;
         }}
+        </style>
+    """.replace("{theme_css}", theme_css), unsafe_allow_html=True)
 
+    # SEPARATE injection for dropdown/popover with HARDCODED colors
+    # BaseWeb portals render outside the main Streamlit container,
+    # so CSS variables defined on :root may not reach them reliably.
+    if theme == "dark":
+        dropdown_bg = "#1E1E1E"
+        dropdown_text = "#FFFFFF"
+        dropdown_hover = "#AA8822"
+        dropdown_border = "rgba(212,175,55,0.4)"
+    else:
+        dropdown_bg = "#FFFFFF"
+        dropdown_text = "#000000"
+        dropdown_hover = "#F0EBE0"
+        dropdown_border = "rgba(201,169,110,0.4)"
+
+    st.markdown(f"""
+        <style>
+        /* Dropdown/Selectbox popup - hardcoded colors for portal elements */
+        ul[role="listbox"],
+        div[data-baseweb="popover"] ul,
+        div[data-baseweb="menu"],
+        div[data-baseweb="popover"] div[data-baseweb="menu"] {{
+            background-color: {dropdown_bg} !important;
+            border: 1px solid {dropdown_border} !important;
+        }}
+
+        ul[role="listbox"] li,
+        div[data-baseweb="menu"] li,
+        li[role="option"] {{
+            background-color: {dropdown_bg} !important;
+            color: {dropdown_text} !important;
+        }}
+
+        ul[role="listbox"] li:hover,
+        div[data-baseweb="menu"] li:hover,
+        li[role="option"]:hover {{
+            background-color: {dropdown_hover} !important;
+            color: {dropdown_text} !important;
+        }}
+
+        ul[role="listbox"] li[aria-selected="true"],
+        li[role="option"][aria-selected="true"] {{
+            background-color: {dropdown_hover} !important;
+            color: {dropdown_text} !important;
+            font-weight: 700 !important;
+        }}
+
+        /* Popover container itself */
+        div[data-baseweb="popover"] > div {{
+            background-color: {dropdown_bg} !important;
+            border: 1px solid {dropdown_border} !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Third style block: remaining global styles
+    st.markdown(f"""
+        <style>
         /* Radio buttons contrast */
         [data-testid="stMarkdownContainer"] p {{
             color: var(--text) !important;
@@ -239,9 +308,7 @@ def inject_style():
             margin: 0 auto !important;
         }}
 
-        /* Prevent form buttons from being centered if not desired, 
-           but for this app, centered forms look good too. 
-           However, let's keep form buttons left-aligned if they are in a form. */
+        /* Prevent form buttons from being centered if not desired */
         [data-testid="stForm"] .stButton {{
             justify-content: flex-start !important;
         }}
@@ -266,4 +333,4 @@ def inject_style():
             border-bottom: 1px solid #E6E9EF !important;
         }}
         </style>
-    """.replace("{theme_css}", theme_css), unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
