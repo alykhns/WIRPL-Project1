@@ -53,7 +53,7 @@ with col_sidebar:
 
     tab = st.radio(
         "menu",
-        ["order history", "personal info", "security"],
+        ["order history", "personal info"],
         label_visibility="collapsed",
     )
 
@@ -108,16 +108,3 @@ with col_content:
                 show_success("profile updated")
                 st.rerun()
 
-    elif "security" in tab:
-        st.markdown("<h3 style='font-family:\"Cormorant Garamond\",serif;font-weight:300;margin-bottom:1.5rem;color:var(--text)'>Security <em style=\"color:var(--gold)\">Settings</em></h3>", unsafe_allow_html=True)
-
-        with st.form("password_form"):
-            current = st.text_input("current password", type="password")
-            new_pass = st.text_input("new password", type="password")
-            confirm = st.text_input("confirm new password", type="password")
-
-            if st.form_submit_button("update password", use_container_width=True):
-                if new_pass == confirm and len(new_pass) >= 6:
-                    show_success("password updated")
-                else:
-                    st.error("passwords don't match or too short")
