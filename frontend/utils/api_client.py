@@ -156,12 +156,37 @@ def create_order(payload):
         MOCK_ORDERS.append(new_order)
         return new_order
     res = requests.post(f"{BASE_URL}/orders", json=payload, headers=get_headers())
-    return res.json() if res.ok else None
+    try:
+        data = res.json()
+    except ValueError:
+        data = {"detail": res.text or f"HTTP {res.status_code}"}
+    return data if res.ok else {"status": "error", **data}
 
 def get_order_history():
     if USE_MOCK: return MOCK_ORDERS
     res = requests.get(f"{BASE_URL}/orders/history", headers=get_headers())
     return res.json() if res.ok else []
+
+# ============================================================
+# PAYMENT & SHIPPING
+# ============================================================
+def submit_payment(payload):
+    if USE_MOCK:
+        return {"status": "success", "message": "Payment processed"}
+    res = requests.post(f"{BASE_URL}/payment", json=payload, headers=get_headers())
+    return res.json() if res.ok else None
+
+def get_shipping_options():
+    if USE_MOCK:
+        return MOCK_SHIPPING_OPTIONS
+    res = requests.get(f"{BASE_URL}/shipping", headers=get_headers())
+    if res.ok:
+        return res.json()
+    return [
+        {"name": "Regular", "estimate": "3-5 hari kerja", "price": 45000},
+        {"name": "Express", "estimate": "1-2 hari kerja", "price": 85000},
+        {"name": "Free Shipping", "estimate": "5-7 hari kerja", "price": 0},
+    ]
 
 # ============================================================
 # ADMIN  

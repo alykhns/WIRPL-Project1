@@ -35,7 +35,7 @@ def render_navbar():
         with cols[4]:
             if is_logged_in():
                 user = get_profile()
-                membership_level = user.get('membership_level', 'regular').lower()
+                membership_level = (user.get('membership_level') or 'regular').lower()
                 IS_ADMIN = membership_level in ['platinum', 'admin'] or user.get('email') == "admin@lumiere.com"
                 if IS_ADMIN:
                     st.page_link("pages/6_Admin.py", label="Admin")
@@ -52,7 +52,7 @@ def render_navbar():
         with cols[7]:
             if is_logged_in():
                 user = get_profile()
-                name = user.get('first_name', 'User')
+                name = user.get('first_name') or st.session_state.get("user") or 'User'
                 if st.button(f"👤 {name}", key="nav_logout", use_container_width=True, help="Logout"):
                     logout()
                     st.rerun()

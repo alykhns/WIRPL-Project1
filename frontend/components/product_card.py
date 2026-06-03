@@ -4,6 +4,14 @@ from utils.api_client import add_to_cart
 from components.toast import show_success, show_error
 
 
+def get_product_name(product):
+    return product.get("product_name") or product.get("name") or "Product"
+
+
+def get_product_brand(product):
+    return str(product.get("brand") or product.get("criteria") or "Brand")
+
+
 def product_card(product, show_add_to_cart=True):
     """
     Display a product card with product details and add to cart button.
@@ -17,7 +25,7 @@ def product_card(product, show_add_to_cart=True):
             if image_url:
                 st.image(image_url, use_container_width=True)
             else:
-                image_initial = product.get("product_name", "P")[0].upper()
+                image_initial = get_product_name(product)[0].upper()
                 st.markdown(f"""
                     <div style="
                         width: 100%;
@@ -39,13 +47,13 @@ def product_card(product, show_add_to_cart=True):
         with col2:
             st.markdown(f"""
                 <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted); letter-spacing: 0.08em;">
-                    {product.get('brand', 'Brand').upper()}
+                    {get_product_brand(product).upper()}
                 </p>
             """, unsafe_allow_html=True)
             
             st.markdown(f"""
                 <h3 style="margin: 4px 0 8px 0; font-size: 1.3rem; font-family: 'Cormorant Garamond', serif; color: var(--text); font-weight: 400;">
-                    {product.get('product_name', 'Product')}
+                    {get_product_name(product)}
                 </h3>
             """, unsafe_allow_html=True)
             
@@ -105,6 +113,7 @@ def product_card(product, show_add_to_cart=True):
                     if inventory > 0:
                         result = add_to_cart(product_id=product.get("product_id"), quantity=1)
                         if result:
+                            product["product_name"] = get_product_name(product)
                             show_success(f"✓ {product.get('product_name', 'Product')} added to cart!")
                         else:
                             show_error("✗ Failed to add product to cart")

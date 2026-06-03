@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.session import init_session, is_logged_in
-from utils.api_client import add_to_cart
+from utils.api_client import add_to_cart, get_product_by_id
 from utils.formatter import format_price
 from utils.mock_data import MOCK_PRODUCTS_SAMPLE
 from components.style import inject_style
@@ -22,12 +22,16 @@ if not product_id:
         st.switch_page("pages/1_Katalog.py")
     st.stop()
 
-# Mencari data produk berdasarkan ID
-product = next((p for p in MOCK_PRODUCTS_SAMPLE if p.get("product_id") == product_id), None)
+# Mencari data produk berdasarkan ID dari API asli, fallback ke mock jika perlu.
+product = get_product_by_id(product_id)
+if not product:
+    product = next((p for p in MOCK_PRODUCTS_SAMPLE if p.get("product_id") == product_id), None)
 
 if not product:
     st.error("Produk tidak ditemukan.")
     st.stop()
+
+product_name = product.get("product_name") or product.get("name") or "Nama Produk"
 
 # Layout Detail Produk
 if st.button("← Kembali ke Katalog"):
@@ -45,7 +49,7 @@ with col_image:
 with col_info:
     st.markdown(f"""
         <h1 style='font-family:"Cormorant Garamond",serif;font-weight:400;margin-bottom:0;color:var(--text);'>
-            {product.get('product_name', 'Nama Produk')}
+            {product_name}
         </h1>
         <h3 style='color:var(--gold); margin-top:0.5rem;'>{format_price(product.get('price', 0))}</h3>
         <hr style='border: 0; border-top: 1px solid var(--hr);'>
@@ -82,7 +86,7 @@ with col_info:
                 else:
                     success = add_to_cart(product_id, qty)
                     if success:
-                        show_success(f"{qty} {product.get('product_name')} ditambahkan ke keranjang!")
+                        show_success(f"{qty} {product_name} ditambahkan ke keranjang!")
                     else:
                         show_error("Gagal menambahkan ke keranjang.")
         
@@ -94,7 +98,7 @@ with col_info:
                     # Bypass langsung ke checkout membawa 1 item ini
                     st.session_state["checkout_cart"] = [{
                         "product_id": product_id,
-                        "product_name": product.get('product_name'),
+                        "product_name": product_name,
                         "price": product.get('price'),
                         "qty": qty
                     }]

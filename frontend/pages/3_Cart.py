@@ -54,18 +54,27 @@ else:
             qty = item.get("qty", 1)
             price = item.get("price", 0)
             category_id = item.get("category_id")
+            image_url = item.get("image_url")
 
             with c1:
-                # SOLUSI: Mengambil huruf pertama dari nama produk secara dinamis sebagai penanda gambar
-                img_initial = product_name[0].upper() if product_name else "P"
-                st.markdown(f"""
-                    <div style='aspect-ratio:3/4;background:var(--card-bg);
-                    display:flex;align-items:center;justify-content:center;
-                    font-family:"Cormorant Garamond",serif;font-style:italic;
-                    color:var(--gold-light);font-size:1.5rem;border-radius:4px;border:1px solid var(--border)'>
-                        {img_initial}
-                    </div>
-                """, unsafe_allow_html=True)
+                if image_url:
+                    st.markdown(f"""
+                        <img src="{image_url}" alt="{product_name}"
+                        style="width:100%;aspect-ratio:3/4;object-fit:cover;
+                        border-radius:4px;border:1px solid var(--border);
+                        background:var(--card-bg);" />
+                    """, unsafe_allow_html=True)
+                else:
+                    # Fallback kalau produk belum punya URL gambar di database.
+                    img_initial = product_name[0].upper() if product_name else "P"
+                    st.markdown(f"""
+                        <div style='aspect-ratio:3/4;background:var(--card-bg);
+                        display:flex;align-items:center;justify-content:center;
+                        font-family:"Cormorant Garamond",serif;font-style:italic;
+                        color:var(--gold-light);font-size:1.5rem;border-radius:4px;border:1px solid var(--border)'>
+                            {img_initial}
+                        </div>
+                    """, unsafe_allow_html=True)
 
             with c2:
                 cat_name = MOCK_CATEGORIES.get(category_id, "Unknown Category")
@@ -142,7 +151,7 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-        st.session_state["checkout_total"] = total
+        st.session_state["checkout_total"] = subtotal
         st.session_state["checkout_cart"] = cart
 
         if st.button("Proceed to Checkout →", use_container_width=True):

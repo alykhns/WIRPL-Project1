@@ -18,7 +18,49 @@ if "checkout_step" not in st.session_state:
     st.session_state.checkout_step = 1
 
 cart = st.session_state.get("checkout_cart", [])
-total = st.session_state.get("checkout_total", 0)
+stored_total = st.session_state.get("checkout_total", 0)
+subtotal = sum(
+    item.get("price", 0) * item.get("qty", item.get("quantity", 1))
+    for item in cart
+) if cart else stored_total
+total = subtotal
+
+def clear_checkout_cart_state():
+    qty_keys = [key for key in st.session_state.keys() if key.startswith("qty_")]
+    for key in qty_keys:
+        del st.session_state[key]
+    st.session_state.pop("checkout_cart", None)
+    st.session_state.pop("checkout_total", None)
+
+def get_item_qty(item):
+    return int(item.get("qty", item.get("quantity", 1)) or 1)
+
+def get_item_name(item):
+    return item.get("product_name") or item.get("name") or "Product"
+
+def get_payment_value(payment_method):
+    if "bank transfer" in payment_method:
+        return "tf_bank"
+    if "e-wallet" in payment_method:
+        return "gopay"
+    return "tf_bank"
+
+def build_order_payload(final_total, payment_method):
+    address = st.session_state.get("shipping_address", {})
+    return {
+        "cart": cart,
+        "total": final_total,
+        "shipping_address": address.get("address", ""),
+        "city": address.get("city", ""),
+        "postal_code": address.get("postal", ""),
+        "payment_method": payment_method,
+    }
+
+def show_order_error(order_response):
+    message = "Failed to create order. Please try again."
+    if isinstance(order_response, dict):
+        message = order_response.get("detail") or order_response.get("message") or message
+    show_error(message)
 
 # step indicator
 steps = ["Shipping Address", "Payment", "Confirmation"]
@@ -99,31 +141,63 @@ elif st.session_state.checkout_step == 2:
 
                 final_total = total + ship_cost
                 if st.form_submit_button(f"place order · {format_price(final_total)}", use_container_width=True):
-                    result = submit_payment({"method": "credit_card", "total": final_total})
-                    create_order({"cart": cart, "total": final_total})
-                    st.session_state.order_id = "LM-20260516"
-                    st.session_state.checkout_step = 3
-                    st.rerun()
+                    payment_value = get_payment_value(payment_method)
+                    result = submit_payment({"method": payment_value, "total": final_total})
+                    order_response = create_order(build_order_payload(final_total, payment_value))
+                    if order_response and "order_id" in order_response:
+                        st.session_state.order_id = order_response["order_id"]
+                        clear_checkout_cart_state()
+                        st.session_state.checkout_step = 3
+                        st.rerun()
+                    else:
+                        show_order_error(order_response)
         else:
             final_total = total + ship_cost
             if st.button(f"place order · {format_price(final_total)}", use_container_width=True):
-                result = submit_payment({"method": payment_method, "total": final_total})
-                create_order({"cart": cart, "total": final_total})
-                st.session_state.order_id = "LM-20260516"
-                st.session_state.checkout_step = 3
-                st.rerun()
+                payment_value = get_payment_value(payment_method)
+                result = submit_payment({"method": payment_value, "total": final_total})
+                order_response = create_order(build_order_payload(final_total, payment_value))
+                if order_response and "order_id" in order_response:
+                    st.session_state.order_id = order_response["order_id"]
+                    clear_checkout_cart_state()
+                    st.session_state.checkout_step = 3
+                    st.rerun()
+                else:
+                    show_order_error(order_response)
 
     with col_order:
         st.markdown("<div style='font-family:\"Cormorant Garamond\",serif;font-size:1.2rem;margin-bottom:1rem;color:var(--text);'>Your Order</div>", unsafe_allow_html=True)
         for item in cart:
+            item_qty = get_item_qty(item)
+            item_price = item.get("price", 0)
+            item["product_name"] = get_item_name(item)
+            item["qty"] = item_qty
             st.markdown(f"""
                 <div style='display:flex;justify-content:space-between;
                 font-size:0.82rem;padding:0.5rem 0;
                 border-bottom:1px solid var(--border);color:var(--text)'>
                     <span>{item['product_name']} ×{item['qty']}</span>
-                    <span>{format_price(item['price'] * item['qty'])}</span>
+                    <span>{format_price(item_price * item_qty)}</span>
                 </div>
             """, unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style='display:flex;justify-content:space-between;
+            font-size:0.82rem;padding:0.7rem 0 0.4rem;color:var(--text-muted)'>
+                <span>Subtotal</span>
+                <span>{format_price(total)}</span>
+            </div>
+            <div style='display:flex;justify-content:space-between;
+            font-size:0.82rem;padding:0.2rem 0 0.7rem;color:var(--text-muted)'>
+                <span>Shipping</span>
+                <span>{'Free' if ship_cost == 0 else format_price(ship_cost)}</span>
+            </div>
+            <div style='display:flex;justify-content:space-between;
+            font-size:1rem;font-weight:500;padding-top:0.8rem;
+            border-top:1px solid var(--border);color:var(--text)'>
+                <span>Total</span>
+                <span>{format_price(total + ship_cost)}</span>
+            </div>
+        """, unsafe_allow_html=True)
 
 # step 3: konfirmasi
 elif st.session_state.checkout_step == 3:
